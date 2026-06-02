@@ -1,0 +1,43 @@
+# Helm values for apache-airflow/airflow chart
+# Install: helm upgrade --install airflow apache-airflow/airflow -n galaxy-pipeline -f this-file.yaml
+
+executor: LocalExecutor   # KubernetesExecutor in production — LocalExecutor is simpler for learning
+
+webserver:
+  replicas: 1
+  resources:
+    requests: { memory: 512Mi, cpu: 250m }
+    limits:   { memory: 1Gi,   cpu: 500m }
+
+scheduler:
+  resources:
+    requests: { memory: 512Mi, cpu: 250m }
+    limits:   { memory: 1Gi,   cpu: 500m }
+
+# Mount your dags/ folder from a PVC or git-sync
+# For local k3d development: use gitSync pointing at your repo, or mount the dags/ folder directly
+dags:
+  persistence:
+    enabled: true
+    size: 1Gi
+  gitSync:
+    enabled: false   # Set to true and configure your git repo in production
+
+# Use an existing PostgreSQL or let the chart install a subchart
+postgresql:
+  enabled: true  # chart installs PostgreSQL as a sub-chart
+
+# Expose the web UI
+webserverSecretKey: "galaxy-airflow-secret-change-me"
+
+env:
+  - name: COMPUTE_BACKEND
+    value: "cpu"    # override with "gpu" for desktop
+  - name: LLM_BACKEND
+    value: "groq"
+  - name: MLFLOW_URI
+    value: "http://mlflow.galaxy-pipeline:5000"
+
+# Airflow Variables — set these via the UI or `airflow variables set`
+# OCI_BUCKET, OCI_ENDPOINT_URL, OCI_ACCESS_KEY, OCI_SECRET_KEY
+# ORACLE_RELOAD_URL, ADMIN_TOKEN, GROQ_API_KEY

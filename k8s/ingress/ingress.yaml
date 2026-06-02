@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: galaxy-ingress
+  namespace: galaxy-serving
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"    # allow long SSE streams
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"        # required for streaming
+spec:
+  tls:
+  - hosts:
+    - spookypharaoh.com
+    - www.spookypharaoh.com
+    secretName: spookypharaoh-tls
+  rules:
+  - host: spookypharaoh.com
+    http:
+      paths:
+      - path: /chat
+        pathType: Prefix
+        backend:
+          service:
+            name: chatbot-api
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: chatbot-api
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80

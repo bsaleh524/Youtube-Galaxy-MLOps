@@ -1,0 +1,7 @@
+# Helm values for ingress-nginx/ingress-nginx
+controller:
+  service:
+    type: LoadBalancer   # k3d exposes this through the port mapping in k3d-*.yaml
+  resources:
+    requests: { memory: 128Mi, cpu: 100m }
+    limits:   { memory: 256Mi, cpu: 250m }

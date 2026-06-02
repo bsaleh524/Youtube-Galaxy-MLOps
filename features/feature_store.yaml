@@ -1,0 +1,19 @@
+project: galaxy
+registry: ${FEAST_REGISTRY_PATH:./registry.db}
+provider: local
+
+offline_store:
+  type: file
+  # In production (Oracle Cloud), swap to:
+  # type: s3
+  # bucket: galaxy-artifacts
+  # s3_endpoint_override: ${OCI_ENDPOINT_URL}
+
+online_store:
+  type: redis
+  connection_string: ${REDIS_URL:localhost:6379}
+  # For local dev (no Redis): swap to sqlite
+  # type: sqlite
+  # path: ./online_store.db
+
+entity_key_serialization_version: 2

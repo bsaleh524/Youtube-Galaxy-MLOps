@@ -1,0 +1,15 @@
+# Helm values for bitnami/redis
+# Used by: Feast online store, embedding service cache
+
+architecture: standalone  # no replica — this is not a critical store
+
+auth:
+  enabled: false   # enable auth in production with a proper password
+
+master:
+  persistence:
+    enabled: true
+    size: 2Gi
+  resources:
+    requests: { memory: 256Mi, cpu: 100m }
+    limits:   { memory: 512Mi, cpu: 250m }

@@ -1,0 +1,69 @@
+# Ollama deployment — GPU mode only (COMPUTE_BACKEND=gpu on desktop)
+# Skip this on M1 or Oracle Cloud — use LLM_BACKEND=groq instead
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: galaxy-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+      - name: ollama
+        image: ollama/ollama:latest
+        ports:
+        - containerPort: 11434
+        resources:
+          requests:
+            memory: 8Gi
+            cpu: 1
+            nvidia.com/gpu: "1"
+          limits:
+            memory: 12Gi
+            cpu: 2
+            nvidia.com/gpu: "1"
+        volumeMounts:
+        - name: ollama-models
+          mountPath: /root/.ollama    # model weights cache
+        env:
+        - name: OLLAMA_KEEP_ALIVE
+          value: "-1"   # keep model loaded in VRAM permanently
+        lifecycle:
+          postStart:
+            exec:
+              # Pull the model on first start
+              command: ["ollama", "pull", "mistral:7b-instruct-q8_0"]
+      volumes:
+      - name: ollama-models
+        persistentVolumeClaim:
+          claimName: ollama-models-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models-pvc
+  namespace: galaxy-serving
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi   # Mistral 7B Q8 is ~7.5GB
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: galaxy-serving
+spec:
+  selector:
+    app: ollama
+  ports:
+  - port: 11434
+    targetPort: 11434

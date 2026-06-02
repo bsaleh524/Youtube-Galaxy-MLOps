@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot-api
+  namespace: galaxy-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatbot-api
+  template:
+    metadata:
+      labels:
+        app: chatbot-api
+    spec:
+      containers:
+      - name: chatbot-api
+        image: localhost:5000/galaxy-chatbot:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests: { memory: 512Mi, cpu: 250m }
+          limits:   { memory: 1Gi,   cpu: 500m }
+        env:
+        - name: WEAVIATE_URL
+          value: "http://weaviate.galaxy-serving"
+        - name: EMBEDDING_SERVICE_URL
+          value: "http://embedding-service.galaxy-serving:8001"
+        - name: LLM_BACKEND
+          value: "groq"          # "ollama" on desktop with GPU
+        - name: OLLAMA_URL
+          value: "http://ollama.galaxy-serving:11434"
+        - name: FEAST_ENABLED
+          value: "true"
+        - name: FEAST_REPO_PATH
+          value: "/app/features"
+        # Secrets — set these via k8s Secrets, not plain env vars
+        - name: GROQ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: galaxy-secrets
+              key: groq-api-key
+        - name: ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: galaxy-secrets
+              key: admin-token
+        - name: OCI_ENDPOINT_URL
+          valueFrom:
+            secretKeyRef:
+              name: galaxy-secrets
+              key: oci-endpoint-url
+        - name: OCI_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: galaxy-secrets
+              key: oci-access-key
+        - name: OCI_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: galaxy-secrets
+              key: oci-secret-key
+        - name: REDIS_URL
+          value: "redis://redis-master.galaxy-serving:6379"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatbot-api
+  namespace: galaxy-serving
+spec:
+  selector:
+    app: chatbot-api
+  ports:
+  - port: 80
+    targetPort: 8000

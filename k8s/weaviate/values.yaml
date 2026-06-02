@@ -1,0 +1,23 @@
+# Helm values for weaviate/weaviate chart
+# Install: helm upgrade --install weaviate weaviate/weaviate -n galaxy-serving -f this-file.yaml
+
+replicas: 1
+
+resources:
+  requests: { memory: 2Gi,  cpu: 500m }
+  limits:   { memory: 4Gi,  cpu: 1 }
+
+storage:
+  size: 20Gi
+
+env:
+  QUERY_DEFAULTS_LIMIT: "25"
+  AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"   # disable auth for simplicity; add it later
+  PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+  DEFAULT_VECTORIZER_MODULE: "none"   # we supply our own pre-computed vectors
+  ENABLE_MODULES: ""                  # no external vectorizer modules needed
+  CLUSTER_HOSTNAME: "weaviate-0"
+
+service:
+  type: ClusterIP
+  port: 80
