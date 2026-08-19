@@ -1,0 +1,77 @@
+---
+# PersistentVolumeClaim — shared between the stats training Job and this Deployment.
+# The Job writes the DuckDB file; this Deployment reads it (read_only=True in the app).
+# Sequence enforced by Airflow: Job completes → reload endpoint called → frontend re-reads.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: stats-data
+  namespace: galaxy-serving
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 500Mi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stats-api
+  namespace: galaxy-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stats-api
+  template:
+    metadata:
+      labels:
+        app: stats-api
+    spec:
+      containers:
+        - name: stats-api
+          image: localhost:5000/galaxy-stats-api:latest
+          ports:
+            - containerPort: 8002
+          env:
+            - name: DUCKDB_PATH
+              value: /data/youtube_stats.duckdb
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: galaxy-secrets
+                  key: admin-token
+          volumeMounts:
+            - name: stats-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 10
+            periodSeconds: 30
+      volumes:
+        - name: stats-data
+          persistentVolumeClaim:
+            claimName: stats-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stats-api
+  namespace: galaxy-serving
+spec:
+  selector:
+    app: stats-api
+  ports:
+    - port: 8002
+      targetPort: 8002

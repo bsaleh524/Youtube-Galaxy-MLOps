@@ -399,7 +399,7 @@ helm repo update
 # Search available charts
 helm search repo bitnami/redis
 
-# Install Redis (you'll use this for Feast's online store)
+# Install Redis (used by the embedding service for query caching)
 helm install my-redis bitnami/redis \
   --set auth.enabled=false \
   --set master.persistence.enabled=false
@@ -450,7 +450,7 @@ In the Galaxy project, every service runs in k3s:
 | PVC | MLflow experiment data, Weaviate index, Ollama model weights |
 | Namespace | `galaxy-pipeline` (Airflow, MLflow) and `galaxy-serving` (Weaviate, chatbot, frontend) |
 | Helm | Installing Airflow, Weaviate, cert-manager, Prometheus |
-| ConfigMap | Non-secret configuration (MLflow tracking URI, Feast config) |
+| ConfigMap | Non-secret configuration (MLflow tracking URI, DuckDB path) |
 | Secret | API keys (Groq, Oracle credentials) |
 
 You have two clusters:

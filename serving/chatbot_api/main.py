@@ -5,8 +5,10 @@ FastAPI service with streaming RAG responses.
 Endpoints:
   GET  /health                    — liveness probe
   POST /chat/query                — RAG chatbot (SSE streaming)
-  GET  /api/rankings              — current ranking data from Feast
   POST /api/admin/reload          — trigger Weaviate reload from new Parquet
+
+Numerical stats and archetype clusters are served by the stats-api service,
+not this one. See serving/stats_api/main.py.
 """
 
 import asyncio
@@ -67,20 +69,6 @@ async def chat_query(request: QueryRequest):
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-
-@app.get("/api/rankings")
-async def get_rankings():
-    """
-    Return the four ranking lists from Feast online store.
-    Falls back to simple Weaviate queries if Feast is unavailable.
-    """
-    # TODO: implement Feast-backed rankings in Phase 2
-    # For now return placeholder structure
-    return {
-        "newest_added": [],
-        "cluster_highlights": [],
-        "note": "Live rankings are a Phase 2 feature. See docs/rankings_phase2.md"
-    }
 
 
 @app.post("/api/admin/reload")

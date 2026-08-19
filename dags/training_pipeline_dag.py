@@ -2,12 +2,11 @@
 DAG 2: training_pipeline_dag
 Schedule: Wednesday 02:00 UTC (or triggered by fandom_scrape_dag)
 
-Full ML pipeline:
+Fandom embedding pipeline:
   1. Run training Job (embed + cluster + UMAP) on k3s GPU/CPU node
   2. Gate on silhouette score via MLflow
   3. Upload Parquet artifacts to Oracle Object Storage
-  4. Feast materialize (offline → online store)
-  5. POST to Oracle Cloud to reload Weaviate and invalidate caches
+  4. POST to /api/admin/reload — triggers Weaviate upsert + cache flush
 """
 
 from __future__ import annotations
@@ -141,26 +140,7 @@ def training_pipeline_dag():
 
         return {**gate_result, "s3_path": f"s3://{bucket}/{dest_key}"}
 
-    # ── Step 4: Feast materialize ─────────────────────────────────────────────
-
-    @task
-    def feast_materialize(upload_result: dict):
-        """Push updated features from offline store (OCI Parquet) to online store (Redis)."""
-        import subprocess, datetime as dt
-
-        end_date = dt.datetime.utcnow().isoformat()
-        result = subprocess.run(
-            ["feast", "materialize-incremental", end_date],
-            cwd=os.path.join(os.environ.get("AIRFLOW_HOME", "/opt/airflow"), "../features"),
-            capture_output=True,
-            text=True,
-        )
-        print(result.stdout)
-        if result.returncode != 0:
-            raise RuntimeError(f"feast materialize failed: {result.stderr}")
-        print("Feast materialization complete")
-
-    # ── Step 5: Notify Oracle Cloud to reload ────────────────────────────────
+    # ── Step 4: Notify Oracle Cloud to reload ────────────────────────────────
 
     @task
     def oracle_reload(upload_result: dict):
@@ -192,9 +172,6 @@ def training_pipeline_dag():
     trained = training_job.output
     gated = mlflow_quality_gate(trained)
     uploaded = upload_artifacts(gated)
-
-    # Feast and Oracle reload can run in parallel after upload
-    feast_materialize(uploaded)
     oracle_reload(uploaded)
 
 
