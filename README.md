@@ -1,305 +1,193 @@
-# YouTube Galaxy MLOps
+# YouTube Galaxy
 
-A production MLOps pipeline for visualizing and querying 20,000+ YouTube creator profiles alongside stat-based archetypes from the Kaggle "Global YouTube Statistics 2023" dataset. Built as a hands-on learning project for 5 MLOps tools.
+An explorable map of ~20,800 YouTube creators, grouped by how similar their wiki descriptions are, plus a chat box that answers questions about them. Hobby project, built to run for **$0/month**, with Airflow and MLflow doing the real MLOps work on a home machine.
 
-Live at **spookypharaoh.com** (once deployed):
-- **Galaxy** — 3D creator cluster visualization built from content-similarity embeddings
-- **Chat** — RAG chatbot that answers questions about the creator data
-- **Stats** — stat-based archetype view: KMeans clusters on subscriber/view/upload counts, served from DuckDB
+> **Status: re-plan complete, implementation pending.** The repo was originally a Kubernetes/Oracle Cloud stack (see [`archive/`](archive/)). It was simplified to the design below. This README describes the **target** state. To build it, hand [`docs/IMPLEMENTATION_PROMPT.md`](docs/IMPLEMENTATION_PROMPT.md) to a Claude Code instance. Commands marked *(planned)* don't exist yet.
 
 ---
+
+## The idea in one paragraph
+
+Everything heavy happens **on your own machine**: scrape the Fandom wiki, embed the text, cluster it, evaluate it, and only publish if quality checks pass. Publishing produces a small set of static files. A static website (Hostinger) draws the map from those files, and a tiny free Cloudflare Worker answers chat questions. There is no server to babysit, and when your machine is off the site keeps working with the last published data.
+
+## Architecture
+
+```
+ YOUR MACHINE (Mac / desktop)                                   THE INTERNET
+ ────────────────────────────                                   ────────────
+
+ Airflow DAG  galaxy_refresh   (weekly schedule or manual trigger)
+ ┌────────────────────────────────────────────────────────────────────┐
+ │ 1 scrape      incremental: fetch only new/changed wiki pages       │
+ │               raw JSON ──(backup)──▶ Synology                      │
+ │ 2 embed       bge-small-en-v1.5 (384-dim), only changed creators   │
+ │ 3 cluster     KMeans (~120) + UMAP 2D + UMAP 3D + neighbours       │
+ │ 4 evaluate    recall@k on hand-written questions ──▶ MLflow        │
+ │ 5 GATE        quality floor + no regression ── fail ─▶ STOP        │
+ │                                         (live site untouched)      │
+ │ 6 build       static map files + chat index                        │
+ │ 7 publish ─────┬── SFTP ───────────────────▶ HOSTINGER (static)    │
+ │                │                             Galaxy map + chat UI  │
+ │                └── wrangler deploy ────────▶ CLOUDFLARE WORKER     │
+ └────────────────────────────────────────────────────────────────────┘      chat API (free tier)
+ MLflow (local, sqlite)  ·  data/ (gitignored)                                   │
+                                                                                 │
+ VISITOR                                                                         │
+  browser ─ loads map files from Hostinger (no backend involved)                 │
+  browser ─ chat question ──▶ Worker:  embed query (Workers AI)                  │
+                                       pick nearest clusters via centroids       │
+                                       cosine search inside them (in memory)     │
+                                       [ask mode] top results ─▶ LLM ─▶ answer   │
+```
+
+### Why it is shaped this way
+
+| Decision | Reason |
+|---|---|
+| Train/schedule at home, publish static artifacts | The data is small (about 8MB of int8 vectors) and changes slowly. A cloud cluster for it is all cost and upkeep. |
+| Hostinger Premium only serves static files | It is shared hosting. No long-running Python, no Airflow, no databases of ours. |
+| Chat runs on a Cloudflare Worker | Free tier, no server, and it can embed queries and call an LLM through Workers AI. |
+| No vector database | Cloudflare Vectorize's free plan caps stored dimensions below what 20.8K×384 needs, and a paid plan was rejected on cost. The index is a file searched in memory. |
+| Two-stage search (centroids, then members) | Brute force over 20.8K×384 likely exceeds the free plan's 10 ms CPU limit. Probing only the nearest ~3 of 120 clusters is about 40× less work. |
+| 2D map first, 3D toggle | 2D is easier to read and works on phones. Both layouts are precomputed in the pipeline. |
+| Similar creators are precomputed | The map's "similar to X" panel needs no Worker at all. |
+
+**Weaviate was replaced by an in-memory index on purpose, to avoid server hosting and monthly cost.** It handles this scale fine, and nothing is wrong with it. This project just has no budget for a box to run it on.
 
 ## Stack
 
-| Tool | Role | Does NOT own |
+| Tool | Role | Where it runs |
 |---|---|---|
-| **Kubernetes** | Runtime for all always-on services and batch Jobs | Training compute scheduling (that's Airflow's job) |
-| **Airflow** | DAG scheduling + task sequencing for both pipelines | Moving data (passes S3 URIs and file paths via XCom) |
-| **MLflow** | Experiment metrics + model registry + quality gate | Model serving |
-| **Weaviate** | Vector index + hybrid search + RAG retrieval | LLM inference |
-| **DuckDB** | Structured store for Kaggle stats + archetype cluster labels | The embedding vectors (those live in Weaviate) |
+| **Airflow** | Scheduling and sequencing of the refresh pipeline | Local machine |
+| **MLflow** | Tracks clustering/eval runs, stores the quality metrics the gate reads | Local machine |
+| **sentence-transformers** (`BAAI/bge-small-en-v1.5`) | Embeddings, 384-dim | Local machine |
+| **scikit-learn / UMAP** | KMeans clusters, 2D and 3D layouts | Local machine |
+| **Cloudflare Worker + Workers AI** | Query embedding, search, LLM answers | Cloudflare free tier |
+| **Static site** (Vite + TypeScript + deck.gl) | Galaxy map, search, chat widget | Hostinger |
+| **Synology** | Backups of raw scrapes | Home network |
 
-Terraform and Feast were dropped. Terraform: provisioning is a one-time manual step on a single Oracle VM, not worth the IaC overhead. Feast: the stats/rankings model is a periodic batch job with the frontend reading the latest snapshot — no live per-request feature serving, so Feast adds complexity with no real use case.
+Dropped: Kubernetes, Oracle Cloud, Weaviate, Redis, DuckDB, Kaggle stats pipeline, Streamlit, Feast, Terraform. All are preserved in [`archive/`](archive/).
 
----
-
-## How this repo is structured
+## Target repo layout
 
 ```
 youtube-galaxy-mlops/
-├── learn/          ← START HERE. Self-contained tutorials for each tool.
-│   ├── 01-kubernetes/
-│   ├── 02-airflow/
-│   ├── 03-duckdb/
-│   ├── 04-mlflow/
-│   └── 05-weaviate/
-│
-└── (everything else) ← The real implementation. Use this AFTER learn/.
-    ├── dags/           Airflow DAGs (two independent pipeline branches)
-    ├── training/       ML training containers (embedding + stats clustering)
-    ├── serving/        FastAPI chatbot, embedding service, stats API
-    ├── frontend/       Streamlit app (Galaxy, Chat, Stats tabs)
-    ├── k8s/            Kubernetes manifests and Helm values
-    ├── scrapers/       Fandom wiki scraper container
-    └── scripts/        Operational utilities
+├── README.md  CLAUDE.md  Makefile  pyproject.toml  .env.example
+├── pipeline/           Python package: scrape, embed, cluster, build, eval, gate, publish
+├── dags/               galaxy_refresh_dag.py (thin: shells out to pipeline/)
+├── eval/               questions.yaml (hand-written eval set) + reports
+├── web/                Static site (Vite + TS + deck.gl) → builds to web/dist
+├── worker/             Cloudflare Worker (TypeScript) + wrangler config
+├── scrapers/fandom/    Fandom scraper (copied from the sibling repo, fixed, incremental)
+├── scripts/            Setup helpers (Airflow venv, MLflow server)
+├── docs/               IMPLEMENTATION_PROMPT.md, notes
+├── data/               gitignored: raw/, embeddings/, artifacts/, mlflow/
+└── archive/            Previous plan, kept as-is (k8s, learn/, stats, Weaviate, Streamlit)
 ```
 
-**The connection:** every `learn/` module ends with a "How this maps to the Galaxy project" section that points you at the exact file to read next.
+## What gets published
 
----
+Each run builds one **versioned artifact set**. The site reads `manifest.json` (not cached) which points to the current version's files, and it is uploaded last, so a half-finished publish never breaks the site.
 
-## Prerequisites
-
-```bash
-# macOS
-brew install k3d kubectl helm
-
-# Python (use conda or venv per module — each learn/ folder has its own requirements)
-python --version   # needs 3.11+
-
-# Docker Desktop (required for k3d)
-# https://docs.docker.com/desktop/install/mac-install/
-
-# Optional: GPU support (desktop only)
-# Install NVIDIA Container Toolkit if using COMPUTE_BACKEND=gpu
-```
-
----
-
-## Machine compatibility
-
-| Setting | Desktop (RTX 3080) | MacBook M1 |
+| File | Used by | Contents |
 |---|---|---|
-| `COMPUTE_BACKEND` | `gpu` | `cpu` |
-| `LLM_BACKEND` | `ollama` | `groq` |
-| k3d config | `k3d-gpu.yaml` | `k3d-cpu.yaml` |
-| Training speed (embedding) | ~5–10 min (GPU) | 2+ hours (CPU) |
-| Training speed (stats) | <2 min | <2 min |
-| Local LLM | Mistral 7B Q8 in k3d pod | Groq free API |
+| `manifest.json` | site | version, build time, creator count, model name, metrics |
+| `nodes` | site | per creator: id, title, cluster, 2D and 3D coordinates (columnar, compact) |
+| `neighbors` | site | each creator's ~10 nearest neighbours (exact, computed locally) |
+| `clusters.json` | site | cluster id, name, centroid position, size, leader creator |
+| `details/cluster_N.json` | site | bios and links, loaded lazily per cluster |
+| `index.bin` + `centroids.bin` + meta | Worker | int8 vectors ordered by cluster, centroids, packed titles and short bios |
 
-On M1, use `--sample 2000` flag with `train.py` for quick dev iterations instead of the full 20K creator dataset.
+Creators are referenced by stable id (e.g. `fandom_500338`), never by array position, so the Worker and the site can be one version apart without breaking.
 
-Production (Oracle Cloud) always uses `COMPUTE_BACKEND=cpu`, `LLM_BACKEND=groq`.
+## The chat
 
----
+One endpoint, two modes, built in this order:
 
-## Learning sequence
+1. **`search`** (ship first): embed the question, return the closest creators. No LLM. Cheapest, most robust, and arguably the best part.
+2. **`ask`**: take the top ~8 results, put their bios in a prompt, and stream an LLM answer that cites the creators it used. The LLM only sees retrieved text, so it answers from your data, not from memory.
 
-Work through these in order. Each step is independently verifiable before moving on.
+Query embedding and the LLM both use **Workers AI**, so no API keys are needed. Groq is a supported alternative if you provide a key. Free-tier Workers AI hard-stops at its daily quota, so the chat degrades to a friendly "resting for today" message rather than a bill.
 
-### Phase 1: Learn the tools (start here)
+## Quality gate
 
-| Step | Module | What you practice |
+A refresh is published only if all of these hold. The point is that a bad scrape or a bad run never reaches the live site.
+
+- Silhouette is above a floor **measured from a baseline run**, not a guess. The old 0.40 threshold was never validated and is probably unreachable for 120 text clusters.
+- Retrieval **recall@8 on the eval set** has not regressed beyond a tolerance.
+- Creator count is at least ~90% of the last published run (guards against partial scrapes).
+- The two-stage search agrees with exact brute force on the eval set (measures what the speed shortcut costs).
+
+Cluster names carry over between runs by matching each new cluster to the closest previous one. New clusters with no match are listed for you to name.
+
+## What you need to provide
+
+Claude Code can write the code. It cannot do these:
+
+| # | What | Why |
 |---|---|---|
-| 1 | [learn/01-kubernetes/](learn/01-kubernetes/README.md) | Pods, deployments, services, Jobs, Helm, GPU resource requests — written by hand, no shortcuts |
-| 2 | [learn/02-airflow/](learn/02-airflow/airflow_intro.ipynb) | DAGs, operators, XCom, scheduling, TaskFlow API |
-| 3 | [learn/03-duckdb/](learn/03-duckdb/README.md) | Embedded OLAP store, analytics queries, PVC persistence in k8s |
-| 4 | [learn/04-mlflow/](learn/04-mlflow/mlflow_intro.ipynb) | Experiment tracking, model registry, quality gates |
-| 5 | [learn/05-weaviate/](learn/05-weaviate/weaviate_intro.ipynb) | Vector search, hybrid search, RAG pipeline |
+| 1 | **Cloudflare account** (free), run `npx wrangler login`, note your Account ID | Deploys the Worker, enables Workers AI |
+| 2 | **Cloudflare API token** with Workers AI permission, in `.env` | One-time local check that local and Workers AI embeddings match |
+| 3 | **LLM choice for chat.** Default is Workers AI (no key). Optionally a Groq API key as a Worker secret | Needed only for `ask` mode. Some hosted models need a one-time license acceptance. |
+| 4 | **Hostinger SFTP details** in `.env`: host, port, user, password or key, and the target folder | Publishing the static site. Confirm SFTP is enabled in hPanel. |
+| 5 | **Where on spookypharaoh.com the map lives.** Default `/galaxy/` so it won't overwrite an existing site | Sets the site's base path |
+| 6 | **~30 eval questions** with the creators you'd expect back. Claude can draft candidates, you verify | The quality gate and RAG evaluation depend on them |
+| 7 | **Review of cluster names** after the first run | Names are seeded from your old labels, but you approve them |
+| 8 | **Local tooling:** Python 3.11, `uv`, Node 20+. Docker is not required | See setup below |
+| 9 | **Synology backup path** (optional) | Backup copy of each raw scrape |
+| 10 | **Keep the machine awake** during a scheduled run (or trigger manually) | Airflow only runs while your machine is on |
 
-### Phase 2: Build the real project (after learn/)
+## Legal and etiquette
 
-Both pipelines are independent and can run on different schedules. Build them in the order below so each step has what it needs.
+- Fandom wiki text is generally licensed **CC BY-SA**. The site must **credit the wiki and link each creator's source page**. Verify the licence terms before publishing.
+- The scraper must be polite: a delay between requests, an incremental mode, and a generic User-Agent. Do not put personal contact details in it.
+- Creator thumbnails are hotlinked from Fandom's CDN. Prefer text-only cards or lazy loading, and be ready to drop them if that breaks.
 
----
+## Setup *(planned)*
 
-**Step 1 — Kubernetes: start local cluster and deploy base services**
 ```bash
-COMPUTE_BACKEND=cpu ./scripts/start_local.sh   # or COMPUTE_BACKEND=gpu on desktop
-make install-airflow
-make install-mlflow
-make install-weaviate
-make install-redis
-```
-Files: [`k8s/`](k8s/), [`k3d-cpu.yaml`](k3d-cpu.yaml), [`k3d-gpu.yaml`](k3d-gpu.yaml)
-
-> **Why by hand:** prior K8s exposure was limited to running notebooks against a company-managed KubeFlow cluster — no hands-on experience writing Deployments, Services, or Helm charts. Write those here by hand rather than reaching for higher-level abstractions, even where a shortcut exists.
-
----
-
-**Step 2 — Copy the Fandom scraper**
-```bash
-cp ../Controversy-Early-Warning-System/src/scrapers/fandom/my_combined.py scrapers/fandom/
-```
-`scrapers/Dockerfile` expects it at that path. Nothing else is needed.
-
----
-
-**Step 3 — MLflow: verify experiment tracking**
-```bash
-make forward-mlflow   # opens http://localhost:5000
-python -c "import mlflow; mlflow.set_tracking_uri('http://localhost:5000'); mlflow.log_metric('test', 1)"
-```
-Files: [`k8s/mlflow/deployment.yaml`](k8s/mlflow/deployment.yaml)
-
----
-
-**Step 4 — Embedding training pipeline**
-```bash
-make build-training   # builds training/Dockerfile
-
-# Test locally (CPU mode, small sample):
-docker run --rm \
-  -e INPUT_PATH=data/fandom/youtubers_data_combined.json \
-  -e OUTPUT_PATH=data/features/starmap_data.parquet \
-  -e MLFLOW_TRACKING_URI=http://localhost:5000 \
-  -e N_CLUSTERS=120 \
-  -v $(pwd)/data:/data \
-  localhost:5000/galaxy-training:latest
-```
-Files: [`training/train.py`](training/train.py), [`training/Dockerfile`](training/Dockerfile)
-
----
-
-**Step 5 — Stats pipeline (Kaggle dataset)**
-
-Download the Kaggle "Global YouTube Statistics 2023" CSV and place it at:
-```
-data/kaggle/global_youtube_statistics.csv
+# prerequisites: python 3.11, uv, node 20+
+make setup            # uv sync, npm install in web/ and worker/, create the Airflow venv
+cp .env.example .env  # then fill in the values from the table above
+make mlflow           # local MLflow UI on :5000
+make airflow          # local Airflow on :8080
+make pipeline         # run scrape → … → gate once, without publishing
+make eval             # run the retrieval eval alone
+make web-dev          # local map with hot reload
+make worker-dev       # local Worker via wrangler
+make publish          # gated publish: SFTP + wrangler deploy
 ```
 
-Build and test the stats training container:
-```bash
-make build-stats-training   # builds training/train_stats.py
+The first run can reuse the 20,807-creator dataset already scraped in the sibling repo (`Controversy-Early-Warning-System/data/fandom/`). No re-crawl is needed to get started.
 
-docker run --rm \
-  -e KAGGLE_CSV_PATH=data/kaggle/global_youtube_statistics.csv \
-  -e DUCKDB_PATH=data/youtube_stats.duckdb \
-  -e MLFLOW_TRACKING_URI=http://localhost:5000 \
-  -e N_CLUSTERS=20 \
-  -v $(pwd)/data:/data \
-  localhost:5000/galaxy-stats-training:latest
-```
+## Risks and things to verify early
 
-Deploy the stats API:
-```bash
-make build-stats-api
-kubectl apply -f k8s/stats-api/ -n galaxy-serving
-```
-Files: [`training/train_stats.py`](training/train_stats.py), [`serving/stats_api/`](serving/stats_api/), [`k8s/stats-api/deployment.yaml`](k8s/stats-api/deployment.yaml)
+These are the assumptions the design leans on. **Phase 1 of the implementation prompt exists to test them before anything else is built.**
 
----
-
-**Step 6 — Weaviate + chatbot: load data and verify RAG**
-```bash
-make build-embedding
-kubectl apply -f k8s/embedding-service/ -n galaxy-serving
-make forward-weaviate   # http://localhost:8081
-
-# Load Parquet into Weaviate
-make load-weaviate PARQUET_PATH=data/features/starmap_data.parquet
-
-# Test the chatbot
-make build-chatbot
-kubectl apply -f k8s/chatbot-api/ -n galaxy-serving
-curl -X POST http://localhost:8000/chat/query -d '{"question": "who is similar to MrBeast"}'
-```
-Files: [`serving/chatbot_api/`](serving/chatbot_api/), [`serving/embedding_service/`](serving/embedding_service/)
-
----
-
-**Step 7 — Airflow: automate both pipelines**
-```bash
-make forward-airflow   # http://localhost:8080
-
-# Set Airflow Variables via UI or CLI:
-# OCI_BUCKET, OCI_ENDPOINT_URL, OCI_ACCESS_KEY, OCI_SECRET_KEY
-# ORACLE_RELOAD_URL, ADMIN_TOKEN, GROQ_API_KEY
-# KAGGLE_CSV_PATH (OCI path to the Kaggle CSV)
-
-# Test pipelines end-to-end
-make dag-test-train
-make dag-test-stats
-```
-Files: [`dags/training_pipeline_dag.py`](dags/training_pipeline_dag.py), [`dags/stats_pipeline_dag.py`](dags/stats_pipeline_dag.py)
-
----
-
-**Step 8 — Frontend: deploy and verify**
-```bash
-make build-frontend
-kubectl apply -f k8s/frontend/ -n galaxy-serving
-kubectl apply -f k8s/ingress/ingress.yaml -n galaxy-serving
-# Visit https://spookypharaoh.com
-```
-Files: [`frontend/streamlit_app.py`](frontend/streamlit_app.py)
-
----
-
-## Data pipelines
-
-Two independent branches, both scheduled Wednesday 02:00 UTC:
-
-```
-── Branch 1: Fandom embedding pipeline ──────────────────────────────
-
-  Fandom wiki
-      ↓  scrapers/fandom/my_combined.py  (Airflow-triggered k8s Job)
-  creators.json (20K+ profiles) → Oracle Object Storage
-      ↓  training/train.py  (k8s Job — GPU/CPU depending on COMPUTE_BACKEND)
-  GTE-Large-v1.5 embeddings → KMeans (120 clusters) + UMAP 3D
-      ↓  quality gate: silhouette ≥ 0.40 (MLflow)
-  starmap.parquet → Oracle Object Storage
-      ↓  POST /api/admin/reload
-  Weaviate index updated → Streamlit cache flushed
-
-
-── Branch 2: Kaggle stats pipeline ──────────────────────────────────
-
-  Kaggle CSV (static snapshot, re-ingested each run)
-      ↓  training/train_stats.py  (k8s Job)
-  Normalise + log-scale subscriber/view/upload counts
-  KMeans (~20 stat-based archetype clusters)
-      ↓  quality gate: silhouette ≥ 0.30 (MLflow)
-  Cluster labels → DuckDB file on PVC (serving/stats_api reads from here)
-      ↓  POST /api/admin/reload
-  Streamlit Stats tab cache flushed
-```
-
-Both branches call the same `/api/admin/reload` endpoint pattern. The Fandom branch hits the chatbot-api service; the stats branch hits the stats-api service.
-
----
-
-## Key environment variables
-
-Set as Airflow Variables and Kubernetes Secrets. A `.env.example` is at `quick/.env.example`.
-
-| Variable | Where used | Example |
+| Risk | What could go wrong | Fallback |
 |---|---|---|
-| `COMPUTE_BACKEND` | k3d config, training Job | `gpu` or `cpu` |
-| `LLM_BACKEND` | chatbot API | `ollama` or `groq` |
-| `GROQ_API_KEY` | chatbot API | from groq.com free tier |
-| `ADMIN_TOKEN` | reload endpoints | any secret string |
-| `OCI_ENDPOINT_URL` | all OCI storage calls | `https://<ns>.compat.objectstorage.<region>.oraclecloud.com` |
-| `OCI_ACCESS_KEY` | all OCI storage calls | Oracle customer secret key |
-| `OCI_SECRET_KEY` | all OCI storage calls | Oracle customer secret |
-| `MLFLOW_URI` | training, Airflow DAGs | `http://mlflow.galaxy-pipeline:5000` |
-| `WEAVIATE_URL` | chatbot, scripts | `http://weaviate.galaxy-serving` |
-| `REDIS_URL` | embedding service | `redis://redis-master.galaxy-serving:6379` |
-| `KAGGLE_CSV_PATH` | stats pipeline | OCI path or local path to the CSV |
+| Worker CPU limit | Free plan allows ~10 ms CPU per request. Search over probed clusters should fit, but it's unmeasured. | Probe fewer clusters, quantise harder, or accept the $5 paid plan |
+| Where the index lives | Cloudflare's current docs I read said 64 MiB uncompressed script size, while older docs said a few MB compressed on free. Unverified. | Serve the index as a static asset, or from KV or R2 |
+| Embedding mismatch | Workers AI's bge-small must produce vectors compatible with the local ones. Its default pooling differs from the sentence-transformers default (CLS). | Pass `pooling: "cls"`, add the query prefix, test parity before building |
+| bge-small context | Max 512 tokens. About 1 in 10 descriptions is longer and gets truncated. | Embed the title plus the opening text, then check with the eval set |
+| UMAP instability | The layout can shift between runs, so the map "jumps". | Fixed seeds, and optionally align to the previous layout |
+| Free-tier limits | Workers 100K requests/day, Workers AI 10K Neurons/day. | The site keeps working. Only `ask` degrades gracefully. |
 
----
+Free-tier numbers and model IDs change. Check current Cloudflare docs when building.
 
-## Infrastructure
+## Roadmap
 
-Single Oracle Cloud A1 Flex VM (4 OCPU, 24GB RAM) — provisioned manually, one time.
+1. Archive old code, scaffold the new layout.
+2. **Spike:** Worker CPU, index delivery, embedding parity. Go/no-go on the Worker approach.
+3. Local pipeline: incremental scrape, embed, cluster, export.
+4. Static map (2D, then 3D toggle, search, neighbours, clusters).
+5. Worker: `search` mode, then `ask` mode.
+6. Eval set, MLflow tracking, quality gate.
+7. Airflow DAG wrapping the pipeline.
+8. Publish to Hostinger and Cloudflare, then deploy.
 
-| Resource | Cost | Purpose |
-|---|---|---|
-| Oracle Cloud A1 Flex | **$0** always free | Runs k3s + all production services |
-| Oracle Object Storage (20GB) | **$0** always free | Parquet artifacts, MLflow artifacts |
-| Groq API | **$0** free tier | LLM for chatbot (14,400 req/day) |
-| Local machine | already own | Training, local k3d development |
-| **Total** | **$0/month** | |
+**Later ideas** (not in scope): music recommendations for creators (another DAG publishing another artifact set), sentiment drift over time, cluster highlights.
 
-Backup plan: Hetzner CX32 ($11/month) if Oracle free tier is unavailable.
+## History
 
----
-
-## Phase 2 stretch goals
-
-*(Not started. Requires historical snapshots per pipeline run.)*
-
-- **Sentiment drift** — DistilBERT on bio-text snapshots over time (requires storing one Parquet per run, partitioned by date)
-- **Content shift** — creators whose embedding distance from cluster centroid changed most between runs
-- **Cluster highlights** — creator closest to each cluster centroid, updated each run
+This repo began as a hands-on learning project for Kubernetes, Airflow, MLflow, Weaviate and DuckDB, targeting an Oracle Cloud VM. That plan, its tutorials and manifests are in [`archive/`](archive/); the explanation of the original architecture and why it changed is at the bottom of [`archive/learn/README.md`](archive/learn/README.md).
