@@ -1,6 +1,8 @@
 # YouTube Galaxy: local pipeline, static site, Cloudflare Worker.
 # Pipeline steps run in the uv env; Airflow has its own venv (.venv-airflow).
 PY := uv run --group pipeline python
+# Use the Node version pinned in .nvmrc when nvm is installed (wrangler 4 needs Node >= 22.12).
+NPM := $(if $(wildcard $(HOME)/.nvm/nvm.sh),. $(HOME)/.nvm/nvm.sh >/dev/null && nvm use --silent >/dev/null &&,) npm
 .DEFAULT_GOAL := help
 
 .PHONY: help setup mlflow airflow pipeline scrape embed cluster build eval gate publish rollback \
@@ -12,8 +14,8 @@ help:  ## List targets
 setup:  ## Install Python deps, npm deps, and the Airflow venv
 	uv sync
 	@[ -f .env ] || (cp .env.example .env && echo "Created .env from .env.example (fill it in)")
-	@if [ -f web/package.json ]; then npm --prefix web install; fi
-	@if [ -f worker/package.json ]; then npm --prefix worker install; fi
+	@if [ -f web/package.json ]; then $(NPM) --prefix web install; fi
+	@if [ -f worker/package.json ]; then $(NPM) --prefix worker install; fi
 	./scripts/setup_airflow.sh
 
 mlflow:  ## Local MLflow UI on :5001 (sqlite under data/mlflow)
@@ -50,21 +52,21 @@ rollback:  ## Point the site back at an older data version: make rollback VERSIO
 	$(PY) -m pipeline.publish --rollback $(VERSION)
 
 web-dev:  ## Local map with hot reload
-	npm --prefix web run dev
+	$(NPM) --prefix web run dev
 
 web-build:  ## Build the static site into web/dist
-	npm --prefix web run build
+	$(NPM) --prefix web run build
 
 worker-dev:  ## Local Worker via wrangler
-	npm --prefix worker run dev
+	$(NPM) --prefix worker run dev
 
 worker-deploy:  ## Deploy the Worker (needs `npx wrangler login`)
-	npm --prefix worker run deploy
+	$(NPM) --prefix worker run deploy
 
 test:  ## Python, Worker and web tests
 	uv run pytest -q
-	@if [ -f worker/package.json ]; then npm --prefix worker test; fi
-	@if [ -f web/package.json ] && grep -q '"test"' web/package.json; then npm --prefix web test; fi
+	@if [ -f worker/package.json ]; then $(NPM) --prefix worker test; fi
+	@if [ -f web/package.json ] && grep -q '"test"' web/package.json; then $(NPM) --prefix web test; fi
 
 clean:  ## Remove build outputs (keeps data/raw, embeddings and MLflow)
 	rm -rf web/dist worker/.wrangler .pytest_cache .ruff_cache data/artifacts/tmp-*
