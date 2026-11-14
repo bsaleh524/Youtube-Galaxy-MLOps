@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: training-job-example
+spec:
+  template:
+    spec:
+      restartPolicy: Never      # Don't restart on failure — fail the job
+      containers:
+      - name: trainer
+        image: python:3.11-slim
+        command:
+        - python
+        - -c
+        - |
+          import time, random
+          print("Starting training...")
+          time.sleep(5)
+          accuracy = random.uniform(0.85, 0.95)
+          print(f"Training complete. Accuracy: {accuracy:.4f}")
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+  backoffLimit: 2               # Retry up to 2 times on failure
