@@ -32,3 +32,4 @@ worker/.wrangler/
 # macOS / editors
 .DS_Store
 .vscode/
+worker/assets/

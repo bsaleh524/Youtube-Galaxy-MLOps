@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "galaxy-chat",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-28",
+  // The index (index.bin, centroids.bin, meta.bin, index_manifest.json) ships as static assets.
+  // run_worker_first: the Worker handles every request, so the files are only read via env.ASSETS.
+  "assets": { "directory": "./assets", "binding": "ASSETS", "run_worker_first": true },
+  "ai": { "binding": "AI" },
+  "vars": { "SPIKE_ENDPOINTS": "1" },
+  "observability": { "enabled": true }
+}
