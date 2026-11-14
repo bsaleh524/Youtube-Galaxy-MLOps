@@ -18,7 +18,12 @@ Replace the old Kubernetes/Oracle design with a lightweight one:
 ## Operating rules
 
 1. **Work in the phases below, in order. Stop at every `🛑 CHECKPOINT`** and report to the user before continuing. Do not push through checkpoints.
-2. **Do not commit** unless asked. Use `git mv` for tracked files you relocate. Never delete anything under `archive/`.
+2. **Commit early and often.** Make small, logical commits, ideally after every meaningful step that works (a moved folder, a new module with passing tests, a finished page), and always right before stopping at a `🛑 CHECKPOINT`. Before the very first change, commit the current repo state as-is (including the untracked `pyproject.toml`, `uv.lock`, `.python-version`) so there is a clean rollback point. Details:
+   - Run `git status` and `git diff --staged` before each commit. Stage specific paths, not blindly `git add -A`. Confirm no `.env`, secrets, `data/`, `node_modules/` or large binaries are staged.
+   - Messages are short and imperative, with a prefix: `archive:`, `pipeline:`, `web:`, `worker:`, `dag:`, `docs:`, `chore:`. Say what changed and why in the body if non-obvious.
+   - Keep relocations (`git mv`) in their own commits, separate from content edits, so history follows the files.
+   - Don't commit broken states on purpose: tests for the touched area should pass. If you must commit work in progress, say `wip:` in the message.
+   - **Do not push** and do not rewrite or amend history unless the user asks. Never delete anything under `archive/`.
 3. **Do not modify** anything in `../Controversy-Early-Warning-System/`. You may *read* from it and *copy* files out of it.
 4. Do not reintroduce Kubernetes, Weaviate, Redis, DuckDB, Streamlit, Oracle, Terraform or Feast. No paid services.
 5. Anything requiring the user's accounts or credentials (`wrangler login`, Cloudflare token, Hostinger SFTP, Groq key) is something you **cannot do**. Write the code, document the exact command or `.env` variable, and stop at the checkpoint that needs it. Never invent credentials, and never put secrets in git.
@@ -166,7 +171,7 @@ Build on the Phase 1 spike, but production-quality.
 - The static map runs at 20.8K points with 2D default and a 3D toggle, search, neighbours, cluster legend, attribution.
 - The Worker serves `search` and `ask`, stays within free-plan limits, and degrades gracefully.
 - A gated, versioned, rollback-able publish to Hostinger + Cloudflare, with a dry-run.
-- No paid service anywhere; no secrets in git; archive intact.
+- No paid service anywhere; no secrets in git; archive intact; work committed in small logical commits (not pushed).
 - Docs match reality, including any place where a verified fact forced a change to the plan.
 
 ## Things to flag to the user, not silently decide
