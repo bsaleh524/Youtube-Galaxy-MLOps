@@ -27,6 +27,24 @@ export interface LoadedIndex {
 
 let cached: Promise<LoadedIndex> | null = null;
 
+// The four files must come from the same build; a mixed set would return wrong titles silently.
+export function validateLoaded(l: LoadedIndex): LoadedIndex {
+  const { manifest: m, index: i, centroids: c, meta } = l;
+  const checks: [string, number, string, number][] = [
+    ["manifest.n", m.n, "index.n", i.n],
+    ["manifest.dim", m.dim, "index.dim", i.dim],
+    ["manifest.k", m.k, "index.k", i.k],
+    ["meta.n", meta.n, "index.n", i.n],
+    ["centroids.k", c.k, "index.k", i.k],
+    ["centroids.dim", c.dim, "index.dim", i.dim],
+    ["index.offsets[k]", i.offsets[i.k], "index.n", i.n],
+  ];
+  for (const [a, av, b, bv] of checks) {
+    if (av !== bv) throw new Error(`index files disagree: ${a} ${av} != ${b} ${bv}`);
+  }
+  return l;
+}
+
 async function asset(env: Env, name: string): Promise<Response> {
   const res = await env.ASSETS.fetch(`https://assets.local/${name}`);
   if (!res.ok) throw new Error(`asset ${name}: HTTP ${res.status}`);
@@ -40,12 +58,12 @@ async function load(env: Env): Promise<LoadedIndex> {
     asset(env, "centroids.bin").then((r) => r.arrayBuffer()),
     asset(env, "meta.bin").then((r) => r.arrayBuffer()),
   ]);
-  return {
+  return validateLoaded({
     manifest,
     index: parseIndex(index),
     centroids: parseCentroids(centroids),
     meta: parseMeta(meta),
-  };
+  });
 }
 
 export function getIndex(env: Env): Promise<LoadedIndex> {

@@ -38,6 +38,9 @@ def _clean(value: str | None) -> str | None:
     if value is None:
         return None
     value = value.strip()
+    # python-dotenv keeps "KEY=   # comment" as the value "# comment" when nothing precedes it.
+    if value.startswith("#"):
+        return None
     return value or None
 
 

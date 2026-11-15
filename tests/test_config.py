@@ -42,3 +42,23 @@ def test_require_names_missing_setting(tmp_path, monkeypatch):
     monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
     with pytest.raises(SystemExit, match="missing required setting: CLOUDFLARE_API_TOKEN"):
         require(load_settings(tmp_path / "x.env"), "CLOUDFLARE_API_TOKEN")
+
+
+def test_comment_text_is_not_read_as_a_value(tmp_path, monkeypatch):
+    monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
+    f = tmp_path / ".env"
+    f.write_text("CLOUDFLARE_API_TOKEN=          # Workers AI permission\n")
+    assert load_settings(f).cloudflare_api_token is None
+
+
+def test_env_example_leaves_every_secret_unset(monkeypatch):
+    from pathlib import Path
+
+    from dotenv import dotenv_values
+
+    example = Path(__file__).resolve().parents[1] / ".env.example"
+    values = dotenv_values(example)
+    secrets = ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "WORKER_URL", "HOSTINGER_SFTP_HOST",
+               "HOSTINGER_SFTP_USER", "HOSTINGER_SFTP_PASSWORD", "HOSTINGER_SFTP_KEY_PATH",
+               "GROQ_API_KEY", "SYNOLOGY_BACKUP_DIR"]
+    assert {k: values.get(k) for k in secrets if values.get(k)} == {}
