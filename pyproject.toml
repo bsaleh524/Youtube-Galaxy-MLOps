@@ -1,0 +1,42 @@
+[project]
+name = "youtube-galaxy-mlops"
+version = "0.1.0"
+description = "Local pipeline for the YouTube Galaxy map: scrape, embed, cluster, evaluate, gate, build, publish."
+requires-python = ">=3.11"
+dependencies = []
+
+# `uv sync` installs the default groups (pipeline + dev).
+# Airflow lives in its own venv (.venv-airflow, see scripts/setup_airflow.sh).
+[dependency-groups]
+pipeline = [
+    "sentence-transformers>=3.0",
+    "torch>=2.2",
+    "scikit-learn>=1.4",
+    "umap-learn>=0.5.6",
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "mlflow>=2.12",
+    "paramiko>=3.4",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "tqdm>=4.66",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.uv]
+package = false
+default-groups = ["pipeline", "dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["archive"]
