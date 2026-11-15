@@ -6,7 +6,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p test"
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p test",
+    "bench": "vitest bench --run --config vitest.bench.config.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.8.2",
