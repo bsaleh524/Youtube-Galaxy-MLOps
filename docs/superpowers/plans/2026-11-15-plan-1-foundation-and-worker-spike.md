@@ -45,7 +45,12 @@ The spec is delivered as a series of plans, one per milestone. Each later plan i
 2. **Probing runs out of clusters or hits empty ones.** Small clusters, empty clusters (equal consecutive offsets), or `max_probe` reached before `min_candidates`: search must stop cleanly and still return what it has. → Task 6 and Task 7 tests.
 3. **`k` larger than the candidate count** returns all candidates, sorted, with no padding and no crash. → Task 6 and Task 7 tests.
 4. **Zero or unnormalised query vector:** queries are normalised first, and an all-zero query returns `[]` instead of NaN scores. → Task 6 and Task 7 tests.
-5. **Clean clone without `.env`:** `make setup` and `make test` must work with no `.env` present. The parity script without credentials exits non-zero with a one-line message naming the missing variable, not a stack trace. → Task 2 and Task 9.
+5. **Channels with the same name** (owner-reported: exact duplicates have happened in past scrapes). The current seed has 8 pairs that differ only in case, e.g. `TARGET` (`fandom_449281`) and `Target` (`fandom_372805`). Two records with identical titles but different ids must both survive the meta round-trip and both be returnable by search as separate hits. Nothing may key on title. → Task 6 and Task 7 tests.
+   **Carry into later plans:**
+   - Plan 2: the scraper state file and dedupe key on `pageid`/`id`, never title. Seed-name matching is by id. A test asserts that two same-titled pages both survive scrape → embed → build.
+   - Plan 3: site search shows both matches, disambiguated (cluster name and the YouTube handle or URL).
+   - Plan 5: eval `expected` entries use ids when a title is ambiguous.
+6. **Clean clone without `.env`:** `make setup` and `make test` must work with no `.env` present. The parity script without credentials exits non-zero with a one-line message naming the missing variable, not a stack trace. → Task 2 and Task 9.
 
 ---
 
@@ -224,7 +229,8 @@ Defaults: `k=10, probe_min=3, min_candidates=1500, max_probe=12`.
       - `index_manifest.json` with version `"fixture-1"`
       - `queries.json` (20 seeded unit queries)
       - `expected.json` (`{"params": {"probeMin": 2, "minCandidates": 150, "maxProbe": 5}, "results": {"5": [...], "600": [...]}}` from `two_stage_search`)
-      - `meta_utf8.bin` (the two records from `test_meta_utf8_byte_offsets`) and `meta_utf8.json` (those records as plain JSON)
+      - `meta_utf8.bin` and `meta_utf8.json`: the two records from `test_meta_utf8_byte_offsets` plus the two same-titled "Target" records from `test_meta_duplicate_titles_distinct_ids`, as packed meta and as plain JSON
+      - rows 0 and 1 of the fixture index have identical vectors, with titles both set to `"Target"` and different ids
 
 - [ ] **Step 1: Write the failing tests.** `tests/test_index_format.py`:
 
@@ -248,6 +254,13 @@ def test_meta_utf8_byte_offsets(tmp_path):
     write_meta(tmp_path / "meta.bin", recs)
     blob = (tmp_path / "meta.bin").read_bytes()
     assert read_meta_record(blob, 0) == recs[0] and read_meta_record(blob, 1) == recs[1]
+
+def test_meta_duplicate_titles_distinct_ids(tmp_path):
+    recs = [{"id": "fandom_449281", "title": "Target", "cluster": 0, "url": "a", "snippet": "x"},
+            {"id": "fandom_372805", "title": "Target", "cluster": 0, "url": "b", "snippet": "y"}]
+    write_meta(tmp_path / "meta.bin", recs)
+    blob = (tmp_path / "meta.bin").read_bytes()
+    assert [read_meta_record(blob, i)["id"] for i in (0, 1)] == ["fandom_449281", "fandom_372805"]
 ```
 
 `tests/test_search.py`:
@@ -263,6 +276,9 @@ def test_k_larger_than_candidates_returns_all_sorted(): ...
 def test_zero_query_returns_empty(): assert two_stage_search(np.zeros(16, np.float32), cents, idx) == []
 def test_unnormalized_query_same_as_normalized(): ...
 def test_results_sorted_score_desc_row_asc(): ...
+def test_duplicate_vectors_and_titles_both_returned():
+    # two rows with identical vectors (same title, different ids) in one cluster;
+    # querying that vector returns both rows as separate hits with equal scores, lower row first
 ```
 
 - [ ] **Step 2: Run them and confirm they fail.** `uv run pytest tests/test_index_format.py tests/test_search.py -v`. Expected: FAIL (ImportError).
@@ -300,6 +316,7 @@ def test_results_sorted_score_desc_row_asc(): ...
   - `search.test.ts`:
     - For every fixture query and each k in {5, 600}, `twoStageSearch` with the fixture params returns the same rows in the same order as `expected.json`, with `|score - expected| < 1e-4`. This is the cross-language parity check.
     - A zero query returns `[]`.
+    - Querying with fixture row 0's dequantised vector returns rows 0 and 1 as the top two hits, with equal scores, and `readRecord` gives two different ids for the same title "Target".
     - `k=600` returns exactly the candidate count with no padding.
     - Probing everything equals `bruteForce`.
 - [ ] **Step 2: Run them and confirm they fail.** `cd worker && npm test`. Expected: FAIL.
