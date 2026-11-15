@@ -1,4 +1,5 @@
-// Bindings and vars available to the Worker. Extended as bindings are added.
+// Bindings and vars available to the Worker.
 export interface Env {
-  INDEX_VERSION?: string;
+  ASSETS: Fetcher; // static assets: index.bin, centroids.bin, meta.bin, index_manifest.json
+  AI: Ai; // Workers AI (query embeddings)
 }

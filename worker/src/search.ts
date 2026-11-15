@@ -60,16 +60,14 @@ function scoreRange(q: Float32Array, idx: IndexView, start: number, end: number,
   }
 }
 
-export function twoStageSearch(
-  query: Float32Array,
-  c: CentroidsView,
-  idx: IndexView,
-  opts: Partial<SearchOpts> = {},
-): Hit[] {
-  const { k, probeMin, minCandidates, maxProbe } = { ...DEFAULT_OPTS, ...opts };
-  const q = normalize(query);
-  if (!q || k <= 0) return [];
+export interface Probe {
+  clusters: number[]; // probed cluster ids, best first
+  candidates: number; // total member rows scored
+}
 
+// Picks which clusters to score: nearest centroids first (ties → lower id), until
+// probed >= probeMin and candidates >= minCandidates, or maxProbe is reached.
+export function probeClusters(q: Float32Array, c: CentroidsView, idx: IndexView, opts: SearchOpts): Probe {
   const cscores = new Float64Array(c.k);
   for (let ci = 0; ci < c.k; ci++) {
     let dot = 0;
@@ -80,19 +78,39 @@ export function twoStageSearch(
   const order = Array.from({ length: c.k }, (_, i) => i).sort(
     (a, b) => cscores[b] - cscores[a] || a - b,
   );
-
-  const top = new TopK(k);
+  const clusters: number[] = [];
   let candidates = 0;
-  let probed = 0;
   for (const ci of order) {
-    if (probed >= maxProbe || (probed >= probeMin && candidates >= minCandidates)) break;
-    const start = idx.offsets[ci];
-    const end = idx.offsets[ci + 1];
-    scoreRange(q, idx, start, end, top);
-    candidates += end - start;
-    probed++;
+    const probed = clusters.length;
+    if (probed >= opts.maxProbe || (probed >= opts.probeMin && candidates >= opts.minCandidates)) break;
+    clusters.push(ci);
+    candidates += idx.offsets[ci + 1] - idx.offsets[ci];
   }
-  return top.hits;
+  return { clusters, candidates };
+}
+
+export function twoStageSearchWithProbe(
+  query: Float32Array,
+  c: CentroidsView,
+  idx: IndexView,
+  opts: Partial<SearchOpts> = {},
+): { hits: Hit[]; probe: Probe } {
+  const o = { ...DEFAULT_OPTS, ...opts };
+  const q = normalize(query);
+  if (!q || o.k <= 0) return { hits: [], probe: { clusters: [], candidates: 0 } };
+  const probe = probeClusters(q, c, idx, o);
+  const top = new TopK(o.k);
+  for (const ci of probe.clusters) scoreRange(q, idx, idx.offsets[ci], idx.offsets[ci + 1], top);
+  return { hits: top.hits, probe };
+}
+
+export function twoStageSearch(
+  query: Float32Array,
+  c: CentroidsView,
+  idx: IndexView,
+  opts: Partial<SearchOpts> = {},
+): Hit[] {
+  return twoStageSearchWithProbe(query, c, idx, opts).hits;
 }
 
 export function bruteForce(query: Float32Array, idx: IndexView, k: number): Hit[] {

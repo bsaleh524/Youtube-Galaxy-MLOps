@@ -2,5 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "galaxy-chat",
   "main": "src/worker.ts",
-  "compatibility_date": "2026-11-15"
+  "compatibility_date": "2026-11-15",
+  // Index files (index.bin, centroids.bin, meta.bin, index_manifest.json) are copied into
+  // ./assets by the build step; they are gitignored. The Worker runs first for every request.
+  "assets": { "directory": "./assets", "binding": "ASSETS", "run_worker_first": true },
+  "ai": { "binding": "AI" },
+  "observability": { "enabled": true }
 }
