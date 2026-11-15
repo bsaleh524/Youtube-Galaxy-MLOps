@@ -9,4 +9,6 @@ export AIRFLOW_HOME="$PWD/data/airflow"
 export AIRFLOW__CORE__DAGS_FOLDER="$PWD/dags"
 export AIRFLOW__CORE__LOAD_EXAMPLES=False
 mkdir -p "$AIRFLOW_HOME"
-exec .venv-airflow/bin/airflow standalone
+# standalone launches its components as `airflow ...` subprocesses, so the venv must be on PATH.
+export PATH="$PWD/.venv-airflow/bin:$PATH"
+exec airflow standalone
