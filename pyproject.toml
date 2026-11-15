@@ -28,6 +28,16 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.4",
 ]
+# Lightweight group for CI: pure-logic tests only, no torch.
+# Rule: modules import torch / sentence-transformers / umap / mlflow lazily inside functions.
+ci = [
+    "numpy>=1.26",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
 
 [tool.uv]
 package = false

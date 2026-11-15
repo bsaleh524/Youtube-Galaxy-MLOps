@@ -1,0 +1,26 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Python (no torch)
+        run: |
+          uv sync --only-group ci
+          uv run --only-group ci pytest
+          uv run --only-group ci ruff check .
+      - name: Worker
+        working-directory: worker
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
