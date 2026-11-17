@@ -77,3 +77,18 @@ Version c007311c. The index is bundled into the script (11.1 MB, 7.8 MB gzipped,
 | 04:08 | 24 | 2.23 ms | 13.1 ms | 29.1 ms | 29.1 ms |
 
 The cold first minute went from p50 29.7 ms to 2.06 ms, and p90 is lower in every minute. The p99 is still over 10 ms (14–29 ms). Wall time about equals CPU time on those requests, so they are spending the time on CPU, not waiting on I/O. The cause is not known yet. The two candidates are startup CPU being billed to an isolate's first request, and GC pauses. The next step is to tag each request with its per-isolate request number and read per-request CPU from Workers Logs.
+
+### Checkpoint 1 decision (2026-11-17)
+
+**GO.** The owner chose to defer the p99 tail to a polish step: [issue #1](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/1). The reasons:
+- p50/p90 are well under budget.
+- All ~3,000 spike requests succeeded.
+- The synthetic index will be replaced anyway.
+
+Remeasure once the real index is deployed (Plan 4), and escalate if CPU-limit errors appear.
+
+Final Checkpoint 1 results:
+- Index delivery: bundled Data modules.
+- Embedding parity: PASS (CLS pooling).
+- CPU: p50 ~2 ms, p90 ~3.5 ms, p99 open (issue #1).
+- LLM choice: deferred to Plan 7.
