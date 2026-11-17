@@ -48,3 +48,19 @@ Every external fact the build relies on is listed here with its source and the d
 | 01:47 (run 2, warm, partial) | 88 | 1.76 | 3.34 | 12.14 | 12.14 |
 
   Median fits easily (edge ≈ 1.7× the local Node benchmark). The tail shrinks as isolates warm (index load + unoptimised JIT on first requests), but even warm p99 is 12–18 ms, above the 10 ms budget. Client latency p50 ~118 ms (network-dominated).
+
+### Option 1 (allocation-free top-k, unrolled dot product), redeployed 2026-11-17 02:42 UTC
+
+Local mean 0.64 → 0.58 ms. Deployed, 900 requests, 0 errors:
+
+| Window (UTC) | Requests | CPU p50 | p90 | p99 | p99.9 |
+|---|---|---|---|---|---|
+| 02:42 (first requests after deploy) | 11 | 29.74 ms | 46.97 | 49.98 | 49.98 |
+| 02:43 | 391 | 2.23 | 5.15 | 25.27 | 32.67 |
+| 02:44 | 426 | 1.94 | 4.90 | 47.41 | 76.65 |
+| 02:45 (partial) | 88 | 2.50 | 14.30 | 28.96 | 28.96 |
+
+**Conclusion:** the tail is not GC in the search loop. Requests landing on a fresh isolate cost ~30–50 ms CPU,
+which is the cold load of the ~19 MB index from static assets (fetch + arrayBuffer). Cloudflare keeps
+starting new isolates during a run, so ~1–2% of requests pay it and set p99. Warm search is ~2 ms.
+Fixes must target cold-load CPU (smaller index/meta, or moving the load out of the request path), not search.
