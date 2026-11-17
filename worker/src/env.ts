@@ -1,5 +1,5 @@
 // Bindings and vars available to the Worker.
 export interface Env {
-  ASSETS: Fetcher; // static assets: index.bin, centroids.bin, meta.bin, index_manifest.json
+  ASSETS?: Fetcher; // tests only (wrangler.test.jsonc); production bundles the index (src/main.ts)
   AI: Ai; // Workers AI (query embeddings)
 }

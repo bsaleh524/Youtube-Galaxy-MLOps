@@ -1,4 +1,4 @@
-// Loads the search index from the Worker's static assets once per isolate (module-level cache),
+// Test/dev path: loads the search index from the Worker's static assets once per isolate (module-level cache),
 // so only a cold start pays for fetching and parsing ~11 MB. Parsing is zero-copy typed-array views.
 import type { Env } from "./env";
 import {
@@ -46,6 +46,7 @@ export function validateLoaded(l: LoadedIndex): LoadedIndex {
 }
 
 async function asset(env: Env, name: string): Promise<Response> {
+  if (!env.ASSETS) throw new Error("no ASSETS binding (production bundles the index; see src/main.ts)");
   const res = await env.ASSETS.fetch(`https://assets.local/${name}`);
   if (!res.ok) throw new Error(`asset ${name}: HTTP ${res.status}`);
   return res;
