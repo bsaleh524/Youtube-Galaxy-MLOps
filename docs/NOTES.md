@@ -64,3 +64,16 @@ Local mean 0.64 → 0.58 ms. Deployed, 900 requests, 0 errors:
 which is the cold load of the ~19 MB index from static assets (fetch + arrayBuffer). Cloudflare keeps
 starting new isolates during a run, so ~1–2% of requests pay it and set p99. Warm search is ~2 ms.
 Fixes must target cold-load CPU (smaller index/meta, or moving the load out of the request path), not search.
+
+### Option A: index bundled as Data modules and warmed at startup (2026-11-17)
+
+Version c007311c. The index is bundled into the script (11.1 MB, 7.8 MB gzipped, under the 64 MiB limit), parsed at global scope, and warmed with 20 searches. The deploy passed the 1 s startup limit. Same `spike_load.sh` run as before: 900 requests, 04:05:48–04:08:03 UTC, 0 errors.
+
+| Minute (UTC) | Requests | p50 | p90 | p99 | p99.9 |
+|---|---|---|---|---|---|
+| 04:05 (cold) | 36 | 2.06 ms | 3.74 ms | 4.41 ms | 4.41 ms |
+| 04:06 | 404 | 2.13 ms | 3.38 ms | 14.1 ms | 30.3 ms |
+| 04:07 | 438 | 1.89 ms | 3.35 ms | 22.6 ms | 32.8 ms |
+| 04:08 | 24 | 2.23 ms | 13.1 ms | 29.1 ms | 29.1 ms |
+
+The cold first minute went from p50 29.7 ms to 2.06 ms, and p90 is lower in every minute. The p99 is still over 10 ms (14–29 ms). Wall time about equals CPU time on those requests, so they are spending the time on CPU, not waiting on I/O. The cause is not known yet. The two candidates are startup CPU being billed to an isolate's first request, and GC pauses. The next step is to tag each request with its per-isolate request number and read per-request CPU from Workers Logs.
