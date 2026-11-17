@@ -20,7 +20,7 @@ The repo is **mid-migration** from an older Kubernetes/Oracle design. Code outsi
 - Secrets live only in `.env` and Worker secrets, never in git or in browser code. `data/` is gitignored.
 - Fandom text is CC BY-SA: the site must credit the wiki and link each creator's source page.
 - Never put the user's name, email or personal details in a scraper User-Agent or any request to an outside service.
-- Don't commit unless asked. Use `git mv` when relocating tracked files.
+- Commit early and often in small logical commits, and push to the current working branch after each commit. Stage specific paths (never `.env`, `data/`, `node_modules/`). Use `git mv` for relocations. Never push to `main` or rewrite history unless asked.
 
 ## Layout
 `pipeline/` Python package · `dags/` Airflow DAG (thin, shells out to `pipeline/`) · `web/` static site · `worker/` Cloudflare Worker · `scrapers/fandom/` scraper · `eval/` eval questions · `data/` local artifacts · `archive/` old plan.
