@@ -12,7 +12,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 from dotenv import load_dotenv
@@ -38,7 +38,7 @@ query ($account: string!, $script: string!, $since: Time!, $until: Time!) {
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--since", required=True)
-    ap.add_argument("--until", default=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    ap.add_argument("--until", default=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
     ap.add_argument("--script", default="galaxy-chat")
     a = ap.parse_args()
     load_dotenv()
