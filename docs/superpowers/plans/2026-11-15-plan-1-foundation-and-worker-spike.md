@@ -379,19 +379,19 @@ def test_duplicate_vectors_and_titles_both_returned():
 
 ### Task 10: 🛑 Checkpoint 1 — hand over to the owner
 
-- [ ] **Step 1: Run `make test`.** Report the pass/fail counts honestly.
-- [ ] **Step 2: Give the owner the exact steps.**
+- [x] **Step 1: Run `make test`.** Report the pass/fail counts honestly.
+- [x] **Step 2: Give the owner the exact steps.**
   1. Create a free Cloudflare account if needed.
   2. Run `cd worker && npx wrangler login`.
   3. Copy the Account ID from the dashboard into `.env` as `CLOUDFLARE_ACCOUNT_ID`.
   4. Create an API token with the "Workers AI" permission (the exact template name is recorded in Task 5) and put it in `.env` as `CLOUDFLARE_API_TOKEN`.
   5. Accept any LLM license noted in Task 5.
-- [ ] **Step 3: After the owner confirms,** run:
+- [x] **Step 3: After the owner confirms,** run:
   - `cp data/spike/* worker/assets/ && cd worker && npx wrangler deploy`
   - `scripts/spike_load.sh <url> 300`, then read the CPU time with the Task 5 method
   - `curl "<url>/spike/embed-search?q=minecraft%20parkour"`
   - `uv run python -m pipeline.parity_check`. If it fails with cls pooling, also run `--pooling mean` and report both.
-- [ ] **Step 4: Report to the owner in plain language.**
+- [x] **Step 4: Report to the owner in plain language.**
   - The chosen index delivery, and why.
   - Warm CPU p50/p95 versus the 10 ms budget, and cold-start behaviour separately.
   - Parity min/mean cosine versus 0.99.
@@ -399,5 +399,5 @@ def test_duplicate_vectors_and_titles_both_returned():
   - Any fallback needed.
 
   **If CPU doesn't fit the free plan, or parity < 0.99, stop and present options. Don't switch to a paid plan or a vector DB.**
-- [ ] **Step 5: Record all measured numbers in `docs/NOTES.md`, then commit and push** (`docs: checkpoint 1 measurements`).
-- [ ] **Step 6: Write Plan 2** (`docs/superpowers/plans/YYYY-MM-DD-plan-2-pipeline.md`) using these facts, and ask the owner to review it.
+- [x] **Step 5: Record all measured numbers in `docs/NOTES.md`, then commit and push** (`docs: checkpoint 1 measurements`).
+- [x] **Step 6: Write Plan 2** (`docs/superpowers/plans/YYYY-MM-DD-plan-2-pipeline.md`) using these facts, and ask the owner to review it.
