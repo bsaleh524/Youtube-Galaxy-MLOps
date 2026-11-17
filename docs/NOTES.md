@@ -32,3 +32,19 @@ Every external fact the build relies on is listed here with its source and the d
 - 2026-11-15 — **CPU measurement method:** deploy, drive load with `scripts/spike_load.sh`, then read `cpuTimeP50/P99` from GraphQL `workersInvocationsAdaptive` (plus the dashboard chart). No P95 field exists, so we report P50 and P99, and P99 is the stricter one.
 - 2026-11-15 — **LLM for `ask`:** decided later (Plan 7). The llama-3.2 small models are retired on 2026-11-20. Current small candidates still listed: `@cf/meta/llama-3.1-8b-instruct-fp8-fast` (status to confirm in the catalog), `@cf/ibm-granite/granite-4.0-h-micro` (cheapest), `@cf/mistral/mistral-7b-instruct-v0.1`. Rough budget at ~2K input + 400 output tokens: granite ≈ 7 Neurons/answer (~1,400/day); llama-8b-fast ≈ 22 Neurons (~450/day); mistral ≈ 27 Neurons (~370/day). Re-verify all of this in Plan 7.
 - 2026-11-15 — **Local benchmark (Node 24 on the dev Mac, NOT the Workers runtime)** on the 20,800×384 synthetic index with 120 clusters (`npm run bench` in `worker/`): two-stage search mean **1.04 ms**, p99 **1.23 ms**; brute force mean 8.04 ms, p99 22.9 ms. Two-stage is ~7.8× faster. Brute force alone would use most or all of the 10 ms free-plan CPU budget. Deployed numbers come at Checkpoint 1.
+
+## Checkpoint 1 measurements (2026-11-17, deployed free-plan Worker, synthetic 20,800×384 index, 120 clusters)
+
+- **Deploy:** `https://galaxy-chat.galaxy-worker.workers.dev`, index served from static assets. A brand-new workers.dev subdomain failed TLS handshakes for ~2 minutes after the first deploy (certificate provisioning), then worked.
+- **Embedding parity** (`pipeline.parity_check`, 20 passages + 10 prefixed queries): `pooling=cls` min **1.00000**, mean 1.00000 → PASS. Control `pooling=mean`: min 0.88974, mean 0.92884 → FAIL. CLS is mandatory.
+- **End-to-end `/spike/embed-search`** (Workers AI embed + two-stage): works; probed 8 clusters / 1,522 candidates.
+- **Server CPU per request** (GraphQL `workersInvocationsAdaptive`, `scripts/worker_cpu.py`; needs token permission Account Analytics: Read). 0 errors in ~1,200 requests.
+
+| Window (UTC) | Requests | CPU p50 | p90 | p99 | p99.9 |
+|---|---|---|---|---|---|
+| 01:28 (run 1, first minute) | 289 | 2.26 ms | 9.86 | 35.95 | 52.03 |
+| 01:45 (run 2, first minute) | 199 | 4.36 | 24.11 | 49.65 | 55.32 |
+| 01:46 (run 2, warm) | 415 | 1.80 | 5.07 | 18.43 | 27.88 |
+| 01:47 (run 2, warm, partial) | 88 | 1.76 | 3.34 | 12.14 | 12.14 |
+
+  Median fits easily (edge ≈ 1.7× the local Node benchmark). The tail shrinks as isolates warm (index load + unoptimised JIT on first requests), but even warm p99 is 12–18 ms, above the 10 ms budget. Client latency p50 ~118 ms (network-dominated).
