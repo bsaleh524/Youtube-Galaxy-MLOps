@@ -314,9 +314,9 @@ What changes downstream:
   The same seed and data give identical numbers on a re-run.
 - It also writes, per k, the `unnamed_clusters.md` and naming packs, so the owner sees the naming workload of each choice.
 
-- [ ] **Step 1: Write the report-format test, then implement.**
-- [ ] **Step 2: Run it for real on the seed embeddings.** Record the per-k runtime in NOTES.
-- [ ] **Step 3: Commit and push.** (`feat(pipeline): cluster-count comparison report`)
+- [x] **Step 1: Write the report-format test, then implement.**
+- [x] **Step 2: Run it for real on the seed embeddings.** Record the per-k runtime in NOTES.
+- [x] **Step 3: Commit and push.** (`feat(pipeline): cluster-count comparison report`)
 
 ### Task 11: Makefile, end-to-end run, CI
 

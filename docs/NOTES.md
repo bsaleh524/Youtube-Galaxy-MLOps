@@ -197,3 +197,15 @@ Owner decision. When a fresh dump no longer contains a page we already have, the
 
   The Worker bundle is just under the 20 MB warning line; `wrangler deploy --dry-run` reports 19,309 KiB / gzip 9,421 KiB. It is ~2× the spike's synthetic meta because real snippets are 400 chars. If the CPU tail (issue #1) needs it, shortening snippets is the cheapest lever.
 - Cross-check: copied the build's `worker/*` into `worker/assets/` (gitignored; spike assets backed up to the scratchpad). `wrangler dev` loaded it and `validateLoaded` passed (`/health` → `index_version: 20261118-155920-c390a7b8`). Real queries via Workers AI embeddings: "minecraft survival multiplayer server" → Miner Mends, MindCrack, Minecraft…; "makeup and beauty tutorials" → MakeupD0LL, Simply Nailogical…; "spongebob youtube poop" → SpongeDivers Music, SPONGE, HourofPoop…. Worker vitest 22/22 and typecheck pass with these assets.
+
+## 2026-11-18 — Task 10: cluster-count comparison
+
+- `python -m pipeline.compare_k` skips the UMAP layout (irrelevant to clustering; saves ~30 s per k) and never touches the live model. Run `compare-k-20261118`, 45 s total; re-running k=60 gave identical numbers. k=120 matches the live fit exactly (silhouette 0.0120, 71 seed-named).
+
+  | k | silhouette | sizes min/median/max | under 20 | seed-named | unnamed | fit s |
+  |---|---|---|---|---|---|---|
+  | 60 | 0.0130 | 132 / 301.5 / 743 | 0 | 45 | 15 | 11.5 |
+  | 120 | 0.0120 | 43 / 173 / 440 | 0 | 71 | 49 | 12.8 |
+  | 200 | 0.0146 | 14 / 102 / 337 | 3 | 73 | 127 | 15.4 |
+
+- Silhouette is flat across k (0.012–0.015), so it can't pick k here. What changes is granularity and naming work: k=60 merges things (its "Ice Hockey (NHL)" cluster holds NBA and MLB teams too); k=200 splits further but adds more first-name clusters ("nathan · nate · nicholas", a 14-creator "Momo" cluster; issue #5) and 127 clusters to name by hand.
