@@ -31,20 +31,12 @@ def load_samples(path: Path = SAMPLES) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def _device() -> str:
-    import torch
-
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
-
-
 def embed_local(texts: list[str], model_name: str) -> np.ndarray:
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer(model_name, device=_device())
+    from pipeline.device import best_device
+
+    model = SentenceTransformer(model_name, device=best_device())
     return model.encode(texts, normalize_embeddings=True, convert_to_numpy=True).astype(np.float32)
 
 

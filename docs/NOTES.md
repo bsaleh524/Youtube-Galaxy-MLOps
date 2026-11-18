@@ -125,3 +125,16 @@ Some Fandom pages cover several channels by the same creator (e.g. anything4view
   - run frozen on the seed snapshot;
   - the owner has asked Fandom for a fresh dump;
   - build a dump importer once one exists ([issue #4](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/4)).
+
+### Task 4: embedding (2026-11-18)
+`uv run python -m pipeline.embed`, on Apple MPS, with `BAAI/bge-small-en-v1.5` (normalised, CLS, no prefix for passages).
+- **First run:** encoded 20,807 creators in 172 s (121/s), 3 min 8 s wall time including model load.
+- **Second run with nothing changed:** encoded 0, reused 20,807, 8.6 s wall time (mostly loading torch).
+- **Truncation at 2,000 chars:** 5,319 texts (26%) were cut, on word boundaries.
+- **Token counts** (bge tokenizer, 1,000-text sample): p50 280, p90 462, max 540. 0.8% of texts are over 512 tokens and lose their last few tokens to the model's own cutoff, which is acceptable.
+- **Files:** `embeddings.npy` 32.0 MB (20,807 × 384 float32), `rows.json` 1.8 MB.
+- **Checks:**
+  - every vector has norm 1 ± 2e-7;
+  - TARGET vs Target cosine is 0.727, so they are separate rows with different texts;
+  - Markiplier's nearest neighbours are Ethan Nestor, LS Mark, ImMarksman and Jacksepticeye;
+  - MrBeast's nearest neighbours include Karl, MrBeast Memes and MrBeast Burger.

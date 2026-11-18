@@ -49,7 +49,7 @@ data/raw/snapshots/<...>/manifest.json               # count, sha256, source, cr
 data/raw/current -> snapshots/<latest>               # text file holding the snapshot dir name (no symlinks)
 data/seed/seed_cluster_names.json                    # {id: cluster_name} from starmap_data.parquet
 data/embeddings/embeddings.npy                       # float32 (n,384), L2-normalised
-data/embeddings/rows.parquet                         # id, text_hash, row
+data/embeddings/rows.json                            # model, ids, text hashes, sha256 of embeddings.npy
 data/model/galaxy/                                   # persisted cluster model (see Task 6)
 data/cluster_registry.json                           # cluster_key -> {name, colour, source}
 data/cluster_names.json                              # owner's manual names: {cluster_key: name}
@@ -121,13 +121,13 @@ What changes downstream:
 - `textprep.text_hash(text) -> str`: the sha256 hex of the UTF-8 text plus the model name, so changing the model invalidates the cache.
 - `embed.plan(records, rows_df) -> (reuse: dict[id,row], todo: list[id], dropped: list[id])` is a pure function.
 - `embed.run(encoder, records, out_dir)`:
-  - writes new `embeddings.npy` and `rows.parquet` atomically (temp file, then rename);
+  - writes new `embeddings.npy` and `rows.json` atomically (rows.json is written last and records the matrix's sha256, so a mismatched pair is detected) (temp file, then rename);
   - copies reused vectors, encodes only `todo`, and drops removed ids;
   - logs counts, the truncated count, and throughput (creators/s);
   - `encoder` is any object with `encode(list[str]) -> np.ndarray`, so tests use a fake.
 - `python -m pipeline.embed [--max-chars N] [--batch-size 64]`. The real encoder is `SentenceTransformer(EMBEDDING_MODEL, device=cuda|mps|cpu)` with `normalize_embeddings=True`. Reuse the `_device()` logic from `parity_check.py` and move it into `pipeline/device.py`.
 
-- [ ] **Step 1: Write failing tests with a fake encoder.** Cover:
+- [x] **Step 1: Write failing tests with a fake encoder.** Cover:
   - first run encodes everything;
   - second run with one changed description encodes 1;
   - a removed id is gone from rows and the matrix shape shrinks;
@@ -135,9 +135,9 @@ What changes downstream:
   - truncation keeps words whole and is counted;
   - same-title records get separate rows;
   - output vectors have norm 1 ± 1e-5.
-- [ ] **Step 2: Implement until green.**
-- [ ] **Step 3: Real run on the seed.** Record in NOTES: runtime, device, throughput, truncated count, and the embeddings file size. Sanity check: cosine of `fandom_449281` vs `fandom_372805` is printed, not asserted.
-- [ ] **Step 4: Commit and push.** (`feat(pipeline): incremental embedding with text-hash cache`)
+- [x] **Step 2: Implement until green.**
+- [x] **Step 3: Real run on the seed.** Record in NOTES: runtime, device, throughput, truncated count, and the embeddings file size. Sanity check: cosine of `fandom_449281` vs `fandom_372805` is printed, not asserted.
+- [x] **Step 4: Commit and push.** (`feat(pipeline): incremental embedding with text-hash cache`)
 
 ### Task 5: Shared cluster helpers
 
