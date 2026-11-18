@@ -95,3 +95,12 @@ Final Checkpoint 1 results:
 
 ### Records are wiki pages, not channels (owner note, 2026-11-17)
 Some Fandom pages cover several channels by the same creator (e.g. anything4views and Cold Ones). Each page stays one record (`fandom_{pageid}`), with the first channel link in `youtube_url`. Channels sharing a page are related, which is fine for clustering. Possible polish: keep every channel link ([issue #2](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/2)).
+
+## Plan 2
+
+### Task 1: seed snapshot (2026-11-17)
+`uv run python -m pipeline.seed` took 1.7 s.
+- **Snapshot:** `data/raw/snapshots/20261118-041529/`, 20,807 records. sha256 of `creators.json`: `19e7a79c1ecddfe934f13ee6c332126d14cf8bd862d8956919c91e9e292583f2`.
+- **Source JSON:** 0 duplicate ids, 0 malformed ids. All records have the six schema keys. 46 have `youtube_url: null`, which is allowed.
+- **Seed names** (`data/seed/seed_cluster_names.json`): every snapshot id has a name, with no ids on either side missing from the other. 120 distinct names.
+- **Same-title pair:** `TARGET` (`fandom_449281`, "Mobile Gaming (Clash/Brawl)") and `Target` (`fandom_372805`, "Government & Public Services") stay separate records with separate names.

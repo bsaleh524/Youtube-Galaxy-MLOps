@@ -95,14 +95,14 @@ data/artifacts/galaxy/<version>/                     # site + worker files (Task
 
   If the parquet ids that aren't in the JSON exceed 0.5%, it fails loudly. Otherwise it prints counts.
 
-- [ ] **Step 1: Write failing tests.** Cover:
+- [x] **Step 1: Write failing tests.** Cover:
   - validate rejects a duplicate id and accepts duplicate titles;
   - snapshot round-trip keeps non-ASCII text byte-exact;
   - the manifest sha256 matches the file;
   - `current` points at the newest snapshot.
-- [ ] **Step 2: Implement `pipeline/snapshot.py`** until the tests pass.
-- [ ] **Step 3: Implement `pipeline/seed.py`.** Run it for real. Record the count, the sha256 and the id overlap with the parquet in `docs/NOTES.md`.
-- [ ] **Step 4: `make test` passes. Commit and push.** (`feat(pipeline): seed snapshot and seed cluster names`)
+- [x] **Step 2: Implement `pipeline/snapshot.py`** until the tests pass.
+- [x] **Step 3: Implement `pipeline/seed.py`.** Run it for real. Record the count, the sha256 and the id overlap with the parquet in `docs/NOTES.md`.
+- [x] **Step 4: `make test` passes. Commit and push.** (`feat(pipeline): seed snapshot and seed cluster names`)
 
 ### Task 2: Scraper — copy, fix and make testable
 

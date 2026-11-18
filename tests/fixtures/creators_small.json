@@ -1,0 +1,98 @@
+[
+ {
+  "id": "fandom_449281",
+  "title": "TARGET",
+  "description": "Synthetic record: an uppercase title that differs from another only by case.",
+  "thumbnail": "https://example.invalid/thumbs/449281.png",
+  "youtube_url": "https://www.youtube.com/@449281",
+  "url": "https://youtube.fandom.com/wiki/TARGET"
+ },
+ {
+  "id": "fandom_372805",
+  "title": "Target",
+  "description": "Synthetic record: the mixed-case twin of TARGET, a different page.",
+  "thumbnail": "https://example.invalid/thumbs/372805.png",
+  "youtube_url": "https://www.youtube.com/@372805",
+  "url": "https://youtube.fandom.com/wiki/Target"
+ },
+ {
+  "id": "fandom_500338",
+  "title": "ねくろちゃん -Yamaguro Nekuro-",
+  "description": "合成データ: 日本語のタイトルと説明。",
+  "thumbnail": "https://example.invalid/thumbs/500338.png",
+  "youtube_url": "https://www.youtube.com/@500338",
+  "url": "https://youtube.fandom.com/wiki/ねくろちゃん_-Yamaguro_Nekuro-"
+ },
+ {
+  "id": "fandom_101",
+  "title": "Emoji Channel 🎮🔥",
+  "description": "Synthetic record with emoji 🚀 in the title and text ✨.",
+  "thumbnail": "https://example.invalid/thumbs/101.png",
+  "youtube_url": "https://www.youtube.com/@101",
+  "url": "https://youtube.fandom.com/wiki/Emoji_Channel_🎮🔥"
+ },
+ {
+  "id": "fandom_102",
+  "title": "Minecraft Builder",
+  "description": "Synthetic: builds castles in Minecraft.",
+  "thumbnail": "https://example.invalid/thumbs/102.png",
+  "youtube_url": "https://www.youtube.com/@102",
+  "url": "https://youtube.fandom.com/wiki/Minecraft_Builder"
+ },
+ {
+  "id": "fandom_103",
+  "title": "Speedrun Sam",
+  "description": "Synthetic: speedruns retro platformers.",
+  "thumbnail": "https://example.invalid/thumbs/103.png",
+  "youtube_url": "https://www.youtube.com/@103",
+  "url": "https://youtube.fandom.com/wiki/Speedrun_Sam"
+ },
+ {
+  "id": "fandom_104",
+  "title": "Cooking Carla",
+  "description": "Synthetic: quick weeknight recipes.",
+  "thumbnail": "https://example.invalid/thumbs/104.png",
+  "youtube_url": "https://www.youtube.com/@104",
+  "url": "https://youtube.fandom.com/wiki/Cooking_Carla"
+ },
+ {
+  "id": "fandom_105",
+  "title": "Science Steve",
+  "description": "Synthetic: explains physics with experiments.",
+  "thumbnail": "https://example.invalid/thumbs/105.png",
+  "youtube_url": "https://www.youtube.com/@105",
+  "url": "https://youtube.fandom.com/wiki/Science_Steve"
+ },
+ {
+  "id": "fandom_106",
+  "title": "No Link Nora",
+  "description": "Synthetic: a page with no YouTube link.",
+  "thumbnail": "https://example.invalid/thumbs/106.png",
+  "youtube_url": null,
+  "url": "https://youtube.fandom.com/wiki/No_Link_Nora"
+ },
+ {
+  "id": "fandom_107",
+  "title": "Music Mike",
+  "description": "Synthetic: piano covers of game soundtracks.",
+  "thumbnail": "https://example.invalid/thumbs/107.png",
+  "youtube_url": "https://www.youtube.com/@107",
+  "url": "https://youtube.fandom.com/wiki/Music_Mike"
+ },
+ {
+  "id": "fandom_108",
+  "title": "Commentary Cass",
+  "description": "Synthetic: internet culture commentary.",
+  "thumbnail": "https://example.invalid/thumbs/108.png",
+  "youtube_url": "https://www.youtube.com/@108",
+  "url": "https://youtube.fandom.com/wiki/Commentary_Cass"
+ },
+ {
+  "id": "fandom_109",
+  "title": "Vlog Vic",
+  "description": "Synthetic: daily travel vlogs.",
+  "thumbnail": "https://example.invalid/thumbs/109.png",
+  "youtube_url": "https://www.youtube.com/@109",
+  "url": "https://youtube.fandom.com/wiki/Vlog_Vic"
+ }
+]
