@@ -283,7 +283,7 @@ What changes downstream:
 - At the end it prints a size table: each file's raw size and gzip size, the site total, and the Worker bundle total. It warns if the Worker bundle is over 20 MB (issue #1) and fails if it is over 60 MiB.
 - Bios are cut on word boundaries and end with `…`. The CC BY-SA source URL is always present.
 
-- [ ] **Step 1: Write failing tests** on a 12-creator build from a tiny fake model:
+- [x] **Step 1: Write failing tests** on a 12-creator build from a tiny fake model:
   - every id appears once in `nodes`;
   - `neighbors` values are all known ids;
   - `index.bin` row order matches cluster offsets;
@@ -292,9 +292,9 @@ What changes downstream:
   - `pipeline.search.two_stage_search` on the built index finds an exact-copy query as top-1;
   - bios respect their length caps without splitting a UTF-8 character;
   - the manifest's file sizes match the disk.
-- [ ] **Step 2: Implement until green.**
-- [ ] **Step 3: Cross-check against the Worker.** Copy one real build's `worker/*` into a temp dir and run the worker's vitest `validateLoaded` logic. Or check the same invariants in Python (`n`, `dim`, `k`, `offsets[k] == n`). This proves the TS loader accepts it.
-- [ ] **Step 4: Commit and push.** (`feat(pipeline): versioned galaxy artifact build`)
+- [x] **Step 2: Implement until green.**
+- [x] **Step 3: Cross-check against the Worker.** Copy one real build's `worker/*` into a temp dir and run the worker's vitest `validateLoaded` logic. Or check the same invariants in Python (`n`, `dim`, `k`, `offsets[k] == n`). This proves the TS loader accepts it.
+- [x] **Step 4: Commit and push.** (`feat(pipeline): versioned galaxy artifact build`)
 
 ### Task 10: Cluster-count comparison (60 / 120 / 200)
 

@@ -177,3 +177,23 @@ Owner decision. When a fresh dump no longer contains a page we already have, the
 
 - Cluster `c071` is grouped by first name (77 of 83 creators are "Alex*"), because the wiki's bio opening ("Real Name (born …), better known online as …") is a big share of the ~512 tokens the embedding model reads. Only `c071` clearly, `c060` partly. Owner: keep the clustering as is for now; fix later by stripping the opening before embedding — [issue #5](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/5).
 - Naming stays manual (naming packs → paste into Gemini → `data/cluster_names.json`). Automatic suggestions via free Workers AI are a later feature — [issue #6](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/6).
+
+## 2026-11-18 — Task 9: artifact build
+
+- `python -m pipeline.build_artifacts` → `data/artifacts/galaxy/<version>/` in ~12 s. Refuses to build if the model's embeddings sha or ids don't match the current embeddings. Written to a hidden tmp dir and renamed; never overwrites an existing version. Owner names (`data/cluster_names.json`) are overlaid at build time. `manifest.json` carries a CC BY-SA attribution block (license version not stated; check the wiki footer before the site ships).
+- First real build `20261118-155920-c390a7b8` (k=120, 20,807 creators):
+
+  | file | raw | gzip |
+  |---|---|---|
+  | nodes.json | 1.38 MB | 0.49 MB |
+  | neighbors.json | 3.69 MB | 0.80 MB |
+  | clusters.json | 0.02 MB | 0.01 MB |
+  | details/ (120 files) | ~16.4 MB | ~4.8 MB |
+  | **site total** | **21.49 MB** | **6.09 MB** |
+  | worker/index.bin | 8.07 MB | 6.20 MB |
+  | worker/meta.bin | 11.50 MB | 3.36 MB |
+  | worker/centroids.bin | 0.18 MB | 0.17 MB |
+  | **worker total** | **19.76 MB** | **9.73 MB** |
+
+  The Worker bundle is just under the 20 MB warning line; `wrangler deploy --dry-run` reports 19,309 KiB / gzip 9,421 KiB. It is ~2× the spike's synthetic meta because real snippets are 400 chars. If the CPU tail (issue #1) needs it, shortening snippets is the cheapest lever.
+- Cross-check: copied the build's `worker/*` into `worker/assets/` (gitignored; spike assets backed up to the scratchpad). `wrangler dev` loaded it and `validateLoaded` passed (`/health` → `index_version: 20261118-155920-c390a7b8`). Real queries via Workers AI embeddings: "minecraft survival multiplayer server" → Miner Mends, MindCrack, Minecraft…; "makeup and beauty tutorials" → MakeupD0LL, Simply Nailogical…; "spongebob youtube poop" → SpongeDivers Music, SPONGE, HourofPoop…. Worker vitest 22/22 and typecheck pass with these assets.
