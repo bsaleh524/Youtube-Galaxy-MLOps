@@ -104,3 +104,16 @@ Some Fandom pages cover several channels by the same creator (e.g. anything4view
 - **Source JSON:** 0 duplicate ids, 0 malformed ids. All records have the six schema keys. 46 have `youtube_url: null`, which is allowed.
 - **Seed names** (`data/seed/seed_cluster_names.json`): every snapshot id has a name, with no ids on either side missing from the other. 120 distinct names.
 - **Same-title pair:** `TARGET` (`fandom_449281`, "Mobile Gaming (Clash/Brawl)") and `Target` (`fandom_372805`, "Government & Public Services") stay separate records with separate names.
+
+### Task 2 step 1: Fandom robots.txt and terms (2026-11-17) — 🛑 flagged to owner
+- **Live site:** `youtube.fandom.com/robots.txt` and `www.fandom.com/terms-of-use` now return a Cloudflare bot challenge or a 403/402 to non-browser clients. `api.php` still answers 200 JSON to the generic UA. Tested with one `siteinfo` call and one `prop=info` call for pageids 449281|372805.
+- **robots.txt**, read from the Wayback copy of 2026-08-11 (`web.archive.org/web/20260811004727/https://youtube.fandom.com/robots.txt`):
+  - `User-agent: *` has `Allow: /api.php?action=` and `Disallow: /wiki/Special:` (plus `User:`, `Template:` and `Help:` pages).
+  - GPTBot, CCBot, SemrushBot, serpstatbot and ImagesiftBot are fully disallowed.
+- **Terms of Use**, read from the Wayback copy of 2026-11-15 (`web.archive.org/web/20261115004908/https://www.fandom.com/terms-of-use`). Quoted:
+  - "not use any robot, spider, scraper or other automated means to access the Services for any purpose without our express written permission";
+  - "Use any robot, spider, site search and/or retrieval application, or other device to scrape, extract, retrieve or index any portion of the content";
+  - "Without our express, prior written consent, use or copy the content for the development of any software program, including, but not limited to, training a machine learning or artificial intelligence (AI) system".
+
+  The content clause opens with "Except as expressly permitted by the Company (for example with respect to the use of text content … as set forth at our licensing page)". That points to the CC BY-SA licence on wiki text. The automated-access clause has no such exception.
+- **Conclusion:** robots.txt allows API access. The Terms forbid automated access without written permission. The scraper (Tasks 2–3) is on hold until the owner decides.
