@@ -1,12 +1,20 @@
 """Cluster creators and lay out the 2D/3D map.
 
+    uv run python -m pipeline.cluster [--mode assign]                    weekly (default)
     uv run python -m pipeline.cluster --mode fit [--k N] [--run-id ID] [--no-save]
 
 Fit mode (manual `make recluster` and the first run): KMeans + UMAP 2D/3D, aligned to the
 previous model's layout (Procrustes on shared ids), exact top-10 neighbours, silhouette.
 Saves the model to data/model/galaxy/ (or data/runs/<run_id>/model/ with --no-save) and a
 report to data/runs/<run_id>/fit_report.json. Cluster keys and names are assigned by the
-naming step (pipeline/names.py), not here. Assign mode (weekly runs) is added in Task 7.
+naming step (pipeline/names.py), not here.
+
+Assign mode (weekly) keeps cluster identity fixed: creators whose id and text hash are
+unchanged keep their cluster and coordinates byte-for-byte; new or edited creators go to the
+nearest centroid and are placed with the saved UMAP reducers; removed creators are dropped.
+Neighbours and centroids are recomputed. Keys, names and colours are never touched. When the
+share of creators placed by assign since the last fit exceeds DRIFT_RECOMMEND it logs
+"re-cluster recommended" but still succeeds. The report goes to data/runs/<run_id>/assign_report.json.
 The last stdout line is a JSON summary.
 """
 
@@ -14,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 import time
 from collections.abc import Callable
@@ -28,6 +37,9 @@ from pipeline.galaxy_model import GalaxyModel, load_model, save_model
 SEED = 42
 UMAP_PARAMS = {"metric": "cosine", "n_neighbors": 15, "min_dist": 0.1}
 N_NEIGHBORS = 10
+DRIFT_RECOMMEND = 0.15
+
+log = logging.getLogger(__name__)
 
 ReducerFactory = Callable[[int, int], object]
 
@@ -107,11 +119,87 @@ def fit(
     return model, report
 
 
+def assign(
+    X: np.ndarray,
+    ids: list[str],
+    hashes: list[str],
+    model: GalaxyModel,
+    embeddings_sha256: str,
+    run_id: str,
+    n_neighbors: int = N_NEIGHBORS,
+) -> tuple[GalaxyModel, dict]:
+    """Place the current creators into the existing clusters without changing cluster identity."""
+    t0 = time.perf_counter()
+    old = {rid: i for i, rid in enumerate(model.ids)}
+    keep = [i for i, rid in enumerate(ids) if rid in old and model.hashes[old[rid]] == hashes[i]]
+    place = [i for i, rid in enumerate(ids) if not (rid in old and model.hashes[old[rid]] == hashes[i])]
+    added = sum(1 for i in place if ids[i] not in old)
+    current = set(ids)
+    removed = sum(1 for rid in model.ids if rid not in current)
+
+    n, k = len(ids), model.centroids.shape[0]
+    labels = np.empty(n, dtype=np.int32)
+    xy2 = np.empty((n, model.xy2.shape[1]), dtype=np.float32)
+    xyz3 = np.empty((n, model.xyz3.shape[1]), dtype=np.float32)
+    from_fit = np.zeros(n, dtype=bool)
+    if keep:
+        src = np.array([old[ids[i]] for i in keep])
+        dst = np.array(keep)
+        labels[dst] = model.labels[src]
+        xy2[dst] = model.xy2[src]
+        xyz3[dst] = model.xyz3[src]
+        from_fit[dst] = model.from_fit[src]
+    if place:
+        if model.reducer2d is None or model.reducer3d is None:
+            raise ValueError("model has no saved UMAP reducer; re-run `--mode fit` to save one")
+        dst = np.array(place)
+        Xp = X[dst]
+        labels[dst] = clusterlib.assign_nearest(Xp, model.centroids)
+        xy2[dst] = np.asarray(model.reducer2d.transform(Xp), dtype=np.float32)
+        xyz3[dst] = np.asarray(model.reducer3d.transform(Xp), dtype=np.float32)
+
+    centroids = model.centroids.copy()  # an emptied cluster keeps its old centroid
+    for c in np.unique(labels):
+        m = X[labels == c].astype(np.float64).mean(axis=0)
+        norm = np.linalg.norm(m)
+        if norm > 0:
+            centroids[c] = (m / norm).astype(np.float32)
+    neighbors = clusterlib.top_neighbors(X, n_neighbors)
+
+    meta = dict(model.meta)
+    meta["embeddings_sha256"] = embeddings_sha256
+    meta["last_assign_run_id"] = run_id
+    out = GalaxyModel(meta, centroids, list(ids), list(hashes), labels, xy2, xyz3, neighbors,
+                      model.reducer2d, model.reducer3d, from_fit)
+
+    drift = float((~from_fit).sum() / n) if n else 0.0
+    recommend = drift > DRIFT_RECOMMEND
+    if recommend:
+        log.warning("re-cluster recommended: %.1f%% of creators placed by assign since the last fit (> %.0f%%)",
+                    100 * drift, 100 * DRIFT_RECOMMEND)
+    report = {
+        "run_id": run_id,
+        "mode": "assign",
+        "k": k,
+        "creators": n,
+        "unchanged": len(keep),
+        "added": added,
+        "reassigned": len(place) - added,
+        "removed": removed,
+        "drift_share": drift,
+        "recluster_recommended": recommend,
+        "empty_clusters": sorted(set(range(k)) - set(np.unique(labels).tolist())),
+        "sizes": clusterlib.size_stats(labels, k),
+        "seconds": round(time.perf_counter() - t0, 2),
+    }
+    return out, report
+
+
 def main(argv: list[str] | None = None) -> int:
     from pipeline.embed import load_embeddings
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=["fit"], default="fit")
+    ap.add_argument("--mode", choices=["assign", "fit"], default="assign")
     ap.add_argument("--k", type=int, default=None, help="cluster count (default: N_CLUSTERS)")
     ap.add_argument("--run-id", default=datetime.now(UTC).strftime("%Y%m%d-%H%M%S"))
     ap.add_argument("--no-save", action="store_true", help="write the model under the run dir only, without the UMAP pickles")
@@ -119,13 +207,24 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_settings()
     k = a.k or settings.n_clusters
 
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     X, ids, rows = load_embeddings(settings.data_dir / "embeddings")
     live = settings.data_dir / "model" / "galaxy"
     prev = load_model(live) if (live / "model.json").exists() else None
+    run_dir = settings.data_dir / "runs" / a.run_id
+    if a.mode == "assign":
+        if prev is None:
+            ap.error(f"no model at {live}; run `--mode fit` first")
+        model, report = assign(X, ids, rows["hashes"], prev, rows["embeddings_sha256"], a.run_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        save_model(model, live)
+        report["model_dir"] = str(live)
+        (run_dir / "assign_report.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
+        print(json.dumps(report))
+        return 0
     model, report = fit(
         X, ids, rows["hashes"], k, prev, rows["model"], rows["embeddings_sha256"], a.run_id
     )
-    run_dir = settings.data_dir / "runs" / a.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     target = run_dir / "model" if a.no_save else live
     save_model(model, target, reducers=not a.no_save)

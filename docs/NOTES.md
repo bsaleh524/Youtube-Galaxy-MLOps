@@ -152,3 +152,10 @@ scikit-learn 1.9.0 and scipy 1.17.1 are now also in the `ci` group (no torch), s
   - Silhouette 0.0120.
   - Sizes: min 43, median 173, max 440, 0 empty, 0 under 20.
 - **Model size:** about 240 MB per saved model. `umap2d.pkl` is 125 MB and `umap3d.pkl` 113 MB, because UMAP keeps its training data and neighbour index for `.transform`. `layout.npz` is 7.4 MB and centroids 184 KB. With `galaxy.prev` kept, that is about 0.5 GB on disk. This affects backup sizing (issue #3). Task 10's comparison runs should not pickle reducers.
+
+## 2026-11-18 — Task 7: cluster assign mode
+
+- `python -m pipeline.cluster` now defaults to `--mode assign` (weekly). Unchanged creators (same id and text hash) keep cluster and coordinates byte-for-byte; new/edited ones go to the nearest centroid and are placed with the saved UMAP reducers; removed ones are dropped. Neighbours and centroids (unit mean of members; an emptied cluster keeps its old centroid) are recomputed. Keys/names/colours untouched.
+- Text hashes live in `layout.npz` (not a parquet, as the plan first said). A new `from_fit` column marks rows placed by the last fit; `drift_share` = share of rows *not* from the fit, so it is cumulative since the fit and handles removals. Over 0.15 it logs "re-cluster recommended" and still succeeds.
+- Real-data smoke (scratch, not saved): fit k=120 on 20,757, then assign with 50 new, 20 re-hashed, 10 removed → 12.6 s; 20,727 unchanged rows byte-identical; all 20 re-hashed (same vectors) kept their cluster and moved ~0.54 units on a ~10-unit layout (UMAP `transform` vs `fit_transform` jitter, expected).
+- A model saved with `--no-save` (no reducers) can't place new creators; assign then fails with a clear message, unless nothing is new.

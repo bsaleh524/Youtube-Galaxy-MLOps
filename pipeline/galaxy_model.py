@@ -4,7 +4,8 @@
         model.json      k, seed, fit_run_id, embedding_model, embeddings_sha256, silhouette,
                         cluster_keys (index = KMeans label; filled by the naming step), umap params
         centroids.npy   (k, dim) float32, unit length
-        layout.npz      ids, hashes, labels, xy2, xyz3, neighbors (rows index into ids)
+        layout.npz      ids, hashes, labels, xy2, xyz3, neighbors (rows index into ids),
+                        from_fit (True where the row was placed by the last fit, not by assign)
         umap2d.pkl      fitted 2D reducer (has .transform); absent if saved with reducers=False
         umap3d.pkl      fitted 3D reducer
     data/model/galaxy.prev/   the model before the last save (for alignment and name carry-over)
@@ -19,7 +20,7 @@ import json
 import os
 import pickle
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,11 @@ class GalaxyModel:
     neighbors: np.ndarray
     reducer2d: Any
     reducer3d: Any
+    from_fit: np.ndarray = field(default=None)  # bool per row; None means all True
+
+    def __post_init__(self):
+        if self.from_fit is None:
+            self.from_fit = np.ones(len(self.ids), dtype=bool)
 
 
 def save_model(model: GalaxyModel, path: Path, reducers: bool = True) -> None:
@@ -60,6 +66,7 @@ def save_model(model: GalaxyModel, path: Path, reducers: bool = True) -> None:
             xy2=model.xy2,
             xyz3=model.xyz3,
             neighbors=model.neighbors,
+            from_fit=model.from_fit,
         )
         pickled = (("umap2d.pkl", model.reducer2d), ("umap3d.pkl", model.reducer3d)) if reducers else ()
         for name, reducer in pickled:
@@ -97,4 +104,5 @@ def load_model(path: Path) -> GalaxyModel:
         neighbors=lay["neighbors"],
         reducer2d=reducers[0],
         reducer3d=reducers[1],
+        from_fit=lay["from_fit"] if "from_fit" in lay.files else None,
     )

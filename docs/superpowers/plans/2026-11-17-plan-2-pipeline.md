@@ -211,14 +211,14 @@ What changes downstream:
   `layout.parquet` gains a `text_hash` column so assign can tell unchanged from changed. Task 6 writes it.
 - `python -m pipeline.cluster --mode assign` is the default mode. Plan 6's DAG only uses this mode.
 
-- [ ] **Step 1: Write failing tests.** These use a fake model with identity "transform" functions, so they don't need umap. Cover:
+- [x] **Step 1: Write failing tests.** These use a fake model with identity "transform" functions, so they don't need umap. Cover:
   - unchanged creators' rows are byte-identical before and after;
   - a new creator lands in the nearest cluster;
   - a removed creator is gone;
   - cluster keys, names and colours are unchanged;
   - `drift_share` is computed correctly;
   - a cluster whose members all left keeps its key and centroid, and has no leader.
-- [ ] **Step 2: Implement until green. Commit and push.** (`feat(pipeline): cluster assign mode keeps identity fixed`)
+- [x] **Step 2: Implement until green. Commit and push.** (`feat(pipeline): cluster assign mode keeps identity fixed`)
 
 ### Task 8: Cluster names, keys and colours
 
