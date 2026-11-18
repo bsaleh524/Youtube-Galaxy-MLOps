@@ -6,8 +6,9 @@
 Fit mode (manual `make recluster` and the first run): KMeans + UMAP 2D/3D, aligned to the
 previous model's layout (Procrustes on shared ids), exact top-10 neighbours, silhouette.
 Saves the model to data/model/galaxy/ (or data/runs/<run_id>/model/ with --no-save) and a
-report to data/runs/<run_id>/fit_report.json. Cluster keys and names are assigned by the
-naming step (pipeline/names.py), not here.
+report to data/runs/<run_id>/fit_report.json. The naming step (pipeline/names.py) then gives
+each cluster a stable key, a name and a colour, and writes unnamed_clusters.md and naming packs
+to the run dir for the owner to review.
 
 Assign mode (weekly) keeps cluster identity fixed: creators whose id and text hash are
 unchanged keep their cluster and coordinates byte-for-byte; new or edited creators go to the
@@ -30,7 +31,7 @@ from datetime import UTC, datetime
 
 import numpy as np
 
-from pipeline import clusterlib
+from pipeline import clusterlib, names
 from pipeline.config import load_settings
 from pipeline.galaxy_model import GalaxyModel, load_model, save_model
 
@@ -119,6 +120,37 @@ def fit(
     return model, report
 
 
+def name_model(
+    model: GalaxyModel,
+    X: np.ndarray,
+    texts: list[str],
+    prev: GalaxyModel | None,
+    seed_names: dict[str, str],
+    owner_names: dict[str, str],
+) -> dict:
+    """Fill model.meta["cluster_keys"] and model.registry; return the naming report."""
+    prev_keys = prev.meta.get("cluster_keys") if prev is not None else None
+    usable = prev is not None and prev.registry is not None and bool(prev_keys) and all(prev_keys)
+    keys, registry, report = names.name_clusters(
+        model.labels,
+        model.ids,
+        model.centroids,
+        texts,
+        prev.registry if usable else None,
+        prev.centroids if usable else None,
+        prev_keys if usable else None,
+        seed_names,
+        owner_names,
+    )
+    model.meta["cluster_keys"] = keys
+    model.registry = registry
+    return report
+
+
+def _read_json(path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
 def assign(
     X: np.ndarray,
     ids: list[str],
@@ -170,7 +202,7 @@ def assign(
     meta["embeddings_sha256"] = embeddings_sha256
     meta["last_assign_run_id"] = run_id
     out = GalaxyModel(meta, centroids, list(ids), list(hashes), labels, xy2, xyz3, neighbors,
-                      model.reducer2d, model.reducer3d, from_fit)
+                      model.reducer2d, model.reducer3d, from_fit, model.registry)
 
     drift = float((~from_fit).sum() / n) if n else 0.0
     recommend = drift > DRIFT_RECOMMEND
@@ -226,6 +258,20 @@ def main(argv: list[str] | None = None) -> int:
         X, ids, rows["hashes"], k, prev, rows["model"], rows["embeddings_sha256"], a.run_id
     )
     run_dir.mkdir(parents=True, exist_ok=True)
+    from pipeline.snapshot import load_current
+    from pipeline.textprep import embed_text
+
+    records = {r["id"]: r for r in load_current(settings.data_dir / "raw")[0]}
+    missing = [rid for rid in ids if rid not in records]
+    if missing:
+        ap.error(f"{len(missing)} embedded ids are not in the current snapshot (e.g. {missing[0]}); run embed first")
+    texts = [embed_text(records[rid], rows["max_chars"])[0] for rid in ids]
+    seed_names = _read_json(settings.data_dir / "seed" / "seed_cluster_names.json")
+    owner_names = _read_json(settings.data_dir / "cluster_names.json")
+    report["naming"] = name_model(model, X, texts, prev, seed_names, owner_names)
+    report["unnamed"] = names.write_review(
+        run_dir, model.meta["cluster_keys"], model.registry, model.labels, X, model.centroids, ids, records
+    )
     target = run_dir / "model" if a.no_save else live
     save_model(model, target, reducers=not a.no_save)
     report["model_dir"] = str(target)

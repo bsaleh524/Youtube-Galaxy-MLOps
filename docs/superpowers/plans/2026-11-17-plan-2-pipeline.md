@@ -51,7 +51,7 @@ data/seed/seed_cluster_names.json                    # {id: cluster_name} from s
 data/embeddings/embeddings.npy                       # float32 (n,384), L2-normalised
 data/embeddings/rows.json                            # model, ids, text hashes, sha256 of embeddings.npy
 data/model/galaxy/                                   # persisted cluster model (see Task 6)
-data/cluster_registry.json                           # cluster_key -> {name, colour, source}
+data/model/galaxy/registry.json                      # cluster_key -> {name, colour, source, active, size, keywords}; saved with the model
 data/cluster_names.json                              # owner's manual names: {cluster_key: name}
 data/runs/<run_id>/                                  # per-run reports (compare_k.md, unnamed_clusters.md, naming_packs/)
 data/artifacts/galaxy/<version>/                     # site + worker files (Task 9)
@@ -248,7 +248,7 @@ What changes downstream:
   It never calls an LLM.
 - `palette.new_colours(existing: list[hex], n_new) -> list[hex]` chooses greedily from a dense candidate set in OKLCH. It keeps lightness 0.62–0.82 for a dark background, takes chroma at the gamut limit, and maximises the minimum OKLab distance to all existing colours. It is deterministic. `palette.min_distance(colours) -> float`.
 
-- [ ] **Step 1: Write failing tests.** Cover:
+- [x] **Step 1: Write failing tests.** Cover:
   - bootstrap uses each name at most once, even when two clusters both overlap one name most;
   - an overlap below the threshold gives None;
   - carry-over maps a permuted copy of the centroids back to the same keys;
@@ -257,8 +257,8 @@ What changes downstream:
   - the placeholder comes from keywords;
   - `palette.new_colours(existing=[], 200)` gives 200 unique valid hex colours with a reported minimum distance;
   - adding 5 colours to an existing 120 never changes the 120.
-- [ ] **Step 2: Implement until green.** Wire it into `cluster.py`: fit mode with no previous model uses `bootstrap_from_seed`, and fit mode with a previous model uses `carry_over`. Assign mode reads the registry only.
-- [ ] **Step 3: Commit and push.** (`feat(pipeline): stable cluster keys, seed name bootstrap, colours`)
+- [x] **Step 2: Implement until green.** Wire it into `cluster.py`: fit mode with no previous model uses `bootstrap_from_seed`, and fit mode with a previous model uses `carry_over`. Assign mode reads the registry only.
+- [x] **Step 3: Commit and push.** (`feat(pipeline): stable cluster keys, seed name bootstrap, colours`)
 
 ### Task 9: Build artifacts
 

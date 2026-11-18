@@ -136,3 +136,24 @@ def test_save_without_reducers(tmp_path):
     back = load_model(tmp_path / "m")
     assert back.reducer2d is None and back.reducer3d is None
     assert np.array_equal(back.xy2, model.xy2)
+
+
+def test_name_model_seeds_then_carries_and_registry_round_trips(tmp_path):
+    from pipeline.cluster import name_model
+
+    X, ids, hashes = data()
+    texts = [f"topic{lab} words here" for lab in np.repeat(np.arange(5), 60)]
+    seed = {rid: f"Group {i // 60}" for i, rid in enumerate(ids)}
+    model, _ = do_fit(X, ids, hashes)
+    rep = name_model(model, X, texts, None, seed, {})
+    assert rep["method"] == "seed" and rep["sources"]["seed"] == 5
+    assert sorted(model.meta["cluster_keys"]) == ["c001", "c002", "c003", "c004", "c005"]
+    save_model(model, tmp_path / "galaxy", reducers=False)
+    prev = load_model(tmp_path / "galaxy")
+    assert prev.registry == model.registry
+
+    again, _ = do_fit(X, ids, hashes, prev=prev)
+    rep2 = name_model(again, X, texts, prev, seed, {})
+    assert rep2["method"] == "carried" and rep2["sources"]["carried"] == 5
+    by_key = lambda m: {k: m.registry["clusters"][k]["name"] for k in m.meta["cluster_keys"]}
+    assert by_key(again) == by_key(model)

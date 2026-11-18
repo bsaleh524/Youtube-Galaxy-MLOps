@@ -8,6 +8,7 @@
                         from_fit (True where the row was placed by the last fit, not by assign)
         umap2d.pkl      fitted 2D reducer (has .transform); absent if saved with reducers=False
         umap3d.pkl      fitted 3D reducer
+        registry.json   cluster key -> name, colour, source (pipeline/names.py)
     data/model/galaxy.prev/   the model before the last save (for alignment and name carry-over)
 
 Saving writes a sibling .tmp dir and swaps it in, so a crash never leaves half a model.
@@ -40,6 +41,7 @@ class GalaxyModel:
     reducer2d: Any
     reducer3d: Any
     from_fit: np.ndarray = field(default=None)  # bool per row; None means all True
+    registry: dict | None = None  # filled by the naming step in fit mode
 
     def __post_init__(self):
         if self.from_fit is None:
@@ -68,6 +70,8 @@ def save_model(model: GalaxyModel, path: Path, reducers: bool = True) -> None:
             neighbors=model.neighbors,
             from_fit=model.from_fit,
         )
+        if model.registry is not None:
+            (tmp / "registry.json").write_text(json.dumps(model.registry, indent=1, ensure_ascii=False), encoding="utf-8")
         pickled = (("umap2d.pkl", model.reducer2d), ("umap3d.pkl", model.reducer3d)) if reducers else ()
         for name, reducer in pickled:
             with open(tmp / name, "wb") as f:
@@ -105,4 +109,7 @@ def load_model(path: Path) -> GalaxyModel:
         reducer2d=reducers[0],
         reducer3d=reducers[1],
         from_fit=lay["from_fit"] if "from_fit" in lay.files else None,
+        registry=json.loads((path / "registry.json").read_text(encoding="utf-8"))
+        if (path / "registry.json").exists()
+        else None,
     )
