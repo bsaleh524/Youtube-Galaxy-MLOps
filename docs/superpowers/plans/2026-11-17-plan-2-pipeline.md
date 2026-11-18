@@ -323,17 +323,17 @@ What changes downstream:
 **Files:**
 - Modify: `Makefile`, `README.md` (commands only, where they are now true)
 
-- [ ] **Step 1: Add Makefile targets.**
+- [x] **Step 1: Add Makefile targets.**
   - `seed`, `embed`, `cluster` (assign), `recluster` (fit, never scheduled), `compare-k` and `build`.
   - `pipeline` runs embed → cluster → build (skipping quickly when the snapshot sha256 is unchanged since the last build), without eval/gate (Plan 5) and without publish.
   - Every target calls `uv run python -m …`.
-- [ ] **Step 2: Fresh end-to-end run on the seed.**
+- [x] **Step 2: Fresh end-to-end run on the seed.**
   1. Move `data/model`, `data/embeddings` and `data/cluster_registry.json` aside first, with `mv` to `data/_before_plan2_run/`. Never delete them.
   2. Run `make seed embed`, then `make recluster` with the k chosen at Checkpoint 2 (use 120 provisionally until then), then `make build`.
   3. Time each step.
   4. Run `make pipeline` a second time with no changes. It must finish fast and report "nothing changed".
-- [ ] **Step 3: Check CI.** `.github/workflows/test.yml` already exists from Plan 1. Make sure every new test file either needs only the `ci` group or skips cleanly without torch and umap. Then confirm the run is green on GitHub (`gh run list --limit 1`).
-- [ ] **Step 4: Run `make test`. Commit and push.** (`build: pipeline make targets and CI`)
+- [x] **Step 3: Check CI.** `.github/workflows/test.yml` already exists from Plan 1. Make sure every new test file either needs only the `ci` group or skips cleanly without torch and umap. Then confirm the run is green on GitHub (`gh run list --limit 1`).
+- [x] **Step 4: Run `make test`. Commit and push.** (`build: pipeline make targets and CI`)
 
 ### Task 12: 🛑 Checkpoint 2 — report to the owner
 

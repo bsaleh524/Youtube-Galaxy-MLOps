@@ -146,16 +146,21 @@ Claude Code can write the code. It cannot do these:
 ## Setup *(planned)*
 
 ```bash
-# prerequisites: python 3.11, uv, node 20+
+# prerequisites: python 3.11, uv, node 24+
 make setup            # uv sync, npm install in web/ and worker/, create the Airflow venv
 cp .env.example .env  # then fill in the values from the table above
 make mlflow           # local MLflow UI on :5000
 make airflow          # local Airflow on :8080
-make pipeline         # run scrape → … → gate once, without publishing
-make eval             # run the retrieval eval alone
+make seed             # snapshot the 20,807-creator seed dataset (first run only)
+make embed            # embed new/changed creators (~3 min first time, seconds after)
+make recluster        # full re-fit (manual only; K=200 to override); then name clusters
+make compare-k        # compare cluster counts (KS=60,120,200) without touching the live model
+make build            # write data/artifacts/galaxy/<version>/
+make pipeline         # embed → cluster (assign) → build; skips if nothing changed (FORCE=1)
+make eval             # run the retrieval eval alone (planned)
 make web-dev          # local map with hot reload
 make worker-dev       # local Worker via wrangler
-make publish          # gated publish: SFTP + wrangler deploy
+make publish          # gated publish: SFTP + wrangler deploy (planned)
 ```
 
 The first run can reuse the 20,807-creator dataset already scraped in the sibling repo (`Controversy-Early-Warning-System/data/fandom/`). No re-crawl is needed to get started.

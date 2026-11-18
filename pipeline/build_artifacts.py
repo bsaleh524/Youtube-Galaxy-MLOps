@@ -5,7 +5,8 @@
 Writes data/artifacts/galaxy/<version>/ (version = YYYYMMDD-HHMMSS-<first 8 hex of the
 embeddings sha256>):
 
-    manifest.json              version, built_at, counts, model, metrics, attribution, files + sizes
+    manifest.json              version, built_at, counts, model, metrics, attribution, inputs
+                               (what it was built from; `make pipeline` skips if unchanged), files + sizes
     nodes.json                 columnar {id, title, cluster, x2, y2, x3, y3, z3}; cluster = position in clusters.json
     neighbors.json             {id: [10 ids]}
     clusters.json              [{key, name, colour, size, leader_id, cx2, cy2, cx3, cy3, cz3}]
@@ -80,6 +81,7 @@ def build(
     owner_names: dict[str, str],
     out_root: Path,
     version: str,
+    inputs: dict | None = None,
 ) -> Path:
     """Write <out_root>/<version>/ atomically and return it."""
     ids = model.ids
@@ -186,6 +188,7 @@ def build(
                 "sizes": clusterlib.size_stats(labels, k),
             },
             "attribution": ATTRIBUTION,
+            "inputs": inputs or {},
             "files": files,
         })
     except BaseException:
@@ -247,7 +250,9 @@ def main(argv: list[str] | None = None) -> int:
     owner = json.loads(names_file.read_text(encoding="utf-8")) if names_file.exists() else {}
 
     version = make_version(rows["embeddings_sha256"])
-    path = build(records, X, model, owner, out, version)
+    from pipeline.run import current_inputs
+
+    path = build(records, X, model, owner, out, version, inputs=current_inputs(settings.data_dir))
     rep = size_report(path)
     print_sizes(rep)
     if rep["worker"][0] > WORKER_MAX_BYTES:

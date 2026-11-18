@@ -209,3 +209,14 @@ Owner decision. When a fresh dump no longer contains a page we already have, the
   | 200 | 0.0146 | 14 / 102 / 337 | 3 | 73 | 127 | 15.4 |
 
 - Silhouette is flat across k (0.012–0.015), so it can't pick k here. What changes is granularity and naming work: k=60 merges things (its "Ice Hockey (NHL)" cluster holds NBA and MLB teams too); k=200 splits further but adds more first-name clusters ("nathan · nate · nicholas", a 14-creator "Momo" cluster; issue #5) and 127 clusters to name by hand.
+
+## 2026-11-18 — Decision: k=120; goal is many niche clusters
+
+Owner picked k=120 for now. The goal is many *niche* clusters that each make sense; the first-name clusters (issue #5) are what currently block going higher. Re-run `make compare-k KS=120,200,300` after fixing #5.
+
+## 2026-11-18 — Task 11: make targets and end-to-end run
+
+- New targets: `seed`, `embed`, `cluster` (assign), `recluster` (fit; `K=`), `compare-k` (`KS=`), `build`, `pipeline` (`FORCE=1`). Bare `make` prints help (`.DEFAULT_GOAL := help`) so it can never run a pipeline step by accident; it used to default to `seed`.
+- `pipeline.run` skips everything when the latest build's `manifest.json` `inputs` (snapshot sha256, sha256 of `data/cluster_names.json`, model `fit_run_id`) match the current ones. So renaming a cluster or a re-fit triggers a rebuild even with the same snapshot.
+- Fresh run from scratch (old `data/model` and `data/embeddings` moved to `data/_before_plan2_run/`, not deleted): `make seed` 2 s, `make embed` 171 s (MPS), `make recluster K=120` 58 s, `make build` 11 s. Same embeddings sha (`c390a7b8`), silhouette 0.0120, 71 seed / 49 placeholder names. The new build `20261118-171817-c390a7b8` is byte-identical to the earlier `20261118-155920-c390a7b8` in nodes, clusters, neighbours, details and all Worker binaries.
+- `make pipeline FORCE=1`: embed 6.3 s, cluster 10.9 s, build 4.9 s (23 s wall). `make pipeline` again with no changes: "nothing changed", 1 s.
