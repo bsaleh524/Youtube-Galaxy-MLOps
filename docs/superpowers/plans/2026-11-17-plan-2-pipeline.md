@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the local pipeline: seed snapshot, incremental scraper, embed, cluster (fit and assign modes), names and colours, and the versioned artifact build. Run it on the seed data at 60, 120 and 200 clusters, then stop at 🛑 Checkpoint 2 so the owner can pick the cluster count and review the names.
+**Goal:** Build the local pipeline: seed snapshot, embed, cluster (fit and assign modes), names and colours, and the versioned artifact build. Run it on the seed data at 60, 120 and 200 clusters, then stop at 🛑 Checkpoint 2 so the owner can pick the cluster count and review the names.
 
-**Architecture:** One module per step under `pipeline/`, each runnable as `uv run python -m pipeline.<step>`. Steps talk through files under `data/` only, never through imports of each other's state. That keeps them runnable one at a time now and as Airflow tasks later (Plan 6). Heavy libraries (torch, sentence-transformers, umap, mlflow) are imported **inside functions**, so the `ci` group still runs every pure-logic test. The scraper lives in `scrapers/fandom/` and doesn't need the ML stack.
+**Architecture:** One module per step under `pipeline/`, each runnable as `uv run python -m pipeline.<step>`. Steps talk through files under `data/` only, never through imports of each other's state. That keeps them runnable one at a time now and as Airflow tasks later (Plan 6). Heavy libraries (torch, sentence-transformers, umap, mlflow) are imported **inside functions**, so the `ci` group still runs every pure-logic test.
 
 **Tech Stack:** Python 3.11, uv, numpy, pandas/pyarrow, scikit-learn (KMeans, silhouette, TF-IDF), scipy (`linear_sum_assignment`, `orthogonal_procrustes`; installed with scikit-learn), umap-learn, sentence-transformers, requests, beautifulsoup4, pytest, ruff.
 
-**Spec:** `docs/superpowers/specs/2026-11-15-youtube-galaxy-design.md`. Its sections "Weekly refresh: fixed clusters", "Cluster names", "Cluster colours", "Layout stability", "Cluster-count comparison" and "Incremental scrape baseline" **override** Phase 2 of `docs/IMPLEMENTATION_PROMPT.md` wherever the two differ. Plan 1 is `docs/superpowers/plans/2026-11-15-plan-1-foundation-and-worker-spike.md`.
+**Spec:** `docs/superpowers/specs/2026-11-15-youtube-galaxy-design.md`. Its sections "Weekly refresh: fixed clusters", "Cluster names", "Cluster colours", "Layout stability", "Cluster-count comparison" and "Incremental scrape baseline" (now moot, see Tasks 2–3) **override** Phase 2 of `docs/IMPLEMENTATION_PROMPT.md` wherever the two differ. Plan 1 is `docs/superpowers/plans/2026-11-15-plan-1-foundation-and-worker-spike.md`.
 
 ## Facts carried in from Checkpoint 1 (docs/NOTES.md)
 
@@ -36,7 +36,7 @@ Plan 1's Global Constraints still apply. The ones that matter most here:
 - Generic User-Agent `galaxy-hobby-scraper/1.0`, with no personal details in any request.
 - Commit **and push** after every task, to `superpowers-rework`. Stage specific paths. Never stage `data/` or `.env`.
 - Verify every external fact (MediaWiki API limits and parameters, Fandom robots.txt) against official docs. Record it in `docs/NOTES.md` with the URL and date.
-- **Key everything on id (`fandom_{pageid}`), never title.** This covers the scraper state, embed cache, name bootstrap and build. There are 8 known case-only title pairs, e.g. `TARGET`/`Target`.
+- **Key everything on id (`fandom_{pageid}`), never title.** This covers the embed cache, name bootstrap and build. There are 8 known case-only title pairs, e.g. `TARGET`/`Target`.
 - Every output directory is namespaced under `galaxy`: `data/artifacts/galaxy/<version>/` and `data/model/galaxy/`.
 - Fixed seeds everywhere: KMeans `random_state=42` and UMAP `random_state=42`. Same inputs give the same outputs.
 - Tests never touch the network or `../Controversy-Early-Warning-System/`. They use small in-repo fixtures and fakes.
@@ -48,7 +48,6 @@ data/raw/snapshots/<YYYYMMDD-HHMMSS>/creators.json   # schema: id,title,descript
 data/raw/snapshots/<...>/manifest.json               # count, sha256, source, created_at
 data/raw/current -> snapshots/<latest>               # text file holding the snapshot dir name (no symlinks)
 data/seed/seed_cluster_names.json                    # {id: cluster_name} from starmap_data.parquet
-data/scrape/state.json                               # {pageid: {title, lastrevid}}, keyed by pageid
 data/embeddings/embeddings.npy                       # float32 (n,384), L2-normalised
 data/embeddings/rows.parquet                         # id, text_hash, row
 data/model/galaxy/                                   # persisted cluster model (see Task 6)
@@ -62,7 +61,7 @@ data/artifacts/galaxy/<version>/                     # site + worker files (Task
 
 ## Review Focus
 
-1. **Same-title pages** (`TARGET` `fandom_449281` and `Target` `fandom_372805`). Both must survive snapshot → scrape → embed → cluster → build. → Task 1, 3, 4 and 9 tests.
+1. **Same-title pages** (`TARGET` `fandom_449281` and `Target` `fandom_372805`). Both must survive snapshot → embed → cluster → build. → Task 1, 4 and 9 tests.
 2. **Scraper baseline without a re-crawl.** The first incremental run with no state file fetches only `lastrevid`, in batches of 50 pageids, and **zero page content** for seed pages. → Task 3 test: the fake client counts `action=parse` calls.
 3. **Removed pages** (gone from the category, or deleted) disappear from the snapshot, embeddings and artifacts, and nothing is left behind by index position. → Task 3 and 4 tests.
 4. **Assign mode never changes cluster identity.** Keys, names, colours and existing creators' coordinates stay byte-identical across an assign run. → Task 7 test.
@@ -104,79 +103,13 @@ data/artifacts/galaxy/<version>/                     # site + worker files (Task
 - [x] **Step 3: Implement `pipeline/seed.py`.** Run it for real. Record the count, the sha256 and the id overlap with the parquet in `docs/NOTES.md`.
 - [x] **Step 4: `make test` passes. Commit and push.** (`feat(pipeline): seed snapshot and seed cluster names`)
 
-### Task 2: Scraper — copy, fix and make testable
+### Tasks 2–3: Scraper — DROPPED (owner decision, 2026-11-18)
 
-**Files:**
-- Create: `scrapers/fandom/__init__.py`, `scrapers/fandom/fandom.py` (copied from `../Controversy-Early-Warning-System/src/scrapers/fandom/my_combined.py`, then fixed), `scrapers/fandom/http.py`, `tests/test_scraper_parse.py`, `tests/fixtures/fandom_page.html` (small, **hand-written** HTML in Fandom's markup shape, not a real page)
-- Modify: `docs/NOTES.md`
+Fandom's Terms of Use forbid automated access without written permission (`docs/NOTES.md`, "Task 2 step 1"). The only published dump is from 2025-10-27 and sits in S3 deep archive, so it can't be downloaded. The pipeline therefore runs **frozen on the seed snapshot**. The owner has asked Fandom for a fresh dump. A dump importer will be built only once one exists: [issue #4](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/4). No scraper code is written, and the old project's scraper stays untouched.
 
-**Interfaces:**
-- `scrapers.fandom.http.Client`:
-  - a thin wrapper over `requests.Session`;
-  - sends `User-Agent: galaxy-hobby-scraper/1.0`;
-  - waits a configurable delay between requests (default 1.0 s);
-  - retries 3 times with backoff on 429/5xx and honours `Retry-After`;
-  - offers `get_json(params) -> dict` against `https://youtube.fandom.com/api.php`.
-
-  Tests inject a fake that has the same `get_json`.
-- `scrapers.fandom.fandom`, kept from the original: `clean_wiki_text(html) -> str`, `get_fandom_image(html) -> str | None` and `get_youtube_url(html) -> str | None`. New: `fetch_page(client, pageid: int) -> dict | None`, which uses `action=parse&pageid=…`, returns one record in the snapshot schema with `id=f"fandom_{pageid}"` and `url` = the wiki page URL, and returns `None` for a missing page.
-
-- [ ] **Step 1: Verify and record in NOTES.** Record with URLs and today's date:
-  - `https://youtube.fandom.com/robots.txt` and the Fandom terms on automated access. **If either restricts API scraping, stop and flag it to the owner.** The work order requires this.
-  - The MediaWiki API docs for `action=parse`, `list=categorymembers` (`cmlimit` max for anonymous users, `cmcontinue`) and `prop=info` (`lastrevid`, max 50 `pageids` per request for anonymous users).
-  - The root category the original scraper crawls. Read it from `my_combined.py`.
-- [ ] **Step 2: Copy the original file in.** Then:
-  - remove the broken `from utils` line;
-  - delete the HTML category-page crawling;
-  - route every request through `Client`;
-  - add `fetch_page`.
-
-  Keep the text-cleaning logic as it is, so new records match the seed's style.
-- [ ] **Step 3: Write tests on the fixture HTML.** Cover:
-  - cleaned text drops navboxes/infobox noise the way the original did;
-  - image and YouTube URL extraction;
-  - `fetch_page` on a fake client builds `fandom_{pageid}`;
-  - a fixture page with two YouTube channel links gives one record whose `youtube_url` is the first link (issue #2);
-  - a missing page returns `None`;
-  - a test asserting the UA header carries no personal details (no `@`, nothing from `git config`).
-- [ ] **Step 4: Spot-check on the live wiki.** Fetch 3 pageids from the seed and diff their descriptions against the seed text. Small drift is fine. Different cleaning would be a bug. Record the result in NOTES.
-- [ ] **Step 5: Commit and push.** (`feat(scraper): fixed fandom scraper with polite generic client`)
-
-### Task 3: Scraper — incremental mode and seed baseline
-
-**Files:**
-- Create: `scrapers/fandom/incremental.py`, `tests/test_scraper_incremental.py`
-
-**Interfaces:**
-- `list_category(client, category) -> dict[int, str]` returns `pageid → title`. It pages through `list=categorymembers` with `cmcontinue`, with `cmtype=page` and namespace 0.
-- `fetch_revisions(client, pageids) -> dict[int, int]` returns `pageid → lastrevid`, in batches of 50. Missing pages are left out.
-- `plan_changes(state, listed, revisions) -> Changes` returns `Changes(new: list[int], changed: list[int], removed: list[int], unchanged: list[int])`. It is a pure function.
-- `python -m scrapers.fandom.incremental [--full] [--limit N] [--dry-run]`:
-  1. Loads the current snapshot and `data/scrape/state.json`.
-  2. If there is no state file, writes the **baseline**: the seed pageids' current `lastrevid`s, with no content fetches (spec: "Incremental scrape baseline").
-  3. Fetches content only for new and changed pages.
-  4. Drops removed pages.
-  5. Writes a new snapshot (`source="incremental"`) only if something changed, and prints `{"new":…, "changed":…, "removed":…, "snapshot": path|null}` as the last line, ready for XCom in Plan 6.
-  6. Optionally copies the snapshot to `SYNOLOGY_BACKUP_DIR` if it is set and exists, and silently skips that otherwise.
-
-  `--full` re-fetches every listed page. `--limit` caps the number of fetches, for testing.
-
-- [ ] **Step 1: Write failing tests with a fake client.** Cover:
-  - first run with no state: zero `parse` calls for seed pages, and a state file written;
-  - one changed revid gives exactly one fetch;
-  - a page gone from the listing is removed from the new snapshot;
-  - a new page gets fetched and added;
-  - nothing changed: no new snapshot, and the last line has `"snapshot": null`;
-  - same-title pages with different pageids are tracked separately;
-  - batches never exceed 50.
-- [ ] **Step 2: Implement until green.**
-- [ ] **Step 3: Live run, owner-visible.** Run `--dry-run` first. That fetches the listing and revisions only, and prints counts.
-  - Expect several minutes: ~20.8K pageids ÷ 50 = ~420 requests at 1 s each, about 7 minutes.
-  - Then a real run with `--limit 25`.
-  - Record the counts (new/changed/removed vs the seed) in NOTES.
-
-  Don't run an unlimited real fetch without the owner's OK if more than 500 pages would be fetched. Report the number instead.
-- [ ] **Step 4: Commit and push.** (`feat(scraper): incremental mode with seed baseline`)
+What changes downstream:
+- "Refresh" means **a new snapshot appeared**, not a weekly scrape. `make pipeline` and the Plan 6 DAG check whether the current snapshot's sha256 differs from the one last built. If it doesn't, they finish fast.
+- The Review Focus items about the scraper (#2, #3) and the multi-channel test move to the dump importer (issue #4). Same-title pages are still tested in Tasks 4 and 9.
 
 ### Task 4: Embed (incremental)
 
@@ -391,8 +324,8 @@ data/artifacts/galaxy/<version>/                     # site + worker files (Task
 - Modify: `Makefile`, `README.md` (commands only, where they are now true)
 
 - [ ] **Step 1: Add Makefile targets.**
-  - `seed`, `scrape` (incremental), `embed`, `cluster` (assign), `recluster` (fit, never scheduled), `compare-k` and `build`.
-  - `pipeline` runs scrape → embed → cluster → build, without eval/gate (Plan 5) and without publish.
+  - `seed`, `embed`, `cluster` (assign), `recluster` (fit, never scheduled), `compare-k` and `build`.
+  - `pipeline` runs embed → cluster → build (skipping quickly when the snapshot sha256 is unchanged since the last build), without eval/gate (Plan 5) and without publish.
   - Every target calls `uv run python -m …`.
 - [ ] **Step 2: Fresh end-to-end run on the seed.**
   1. Move `data/model`, `data/embeddings` and `data/cluster_registry.json` aside first, with `mv` to `data/_before_plan2_run/`. Never delete them.
@@ -410,7 +343,6 @@ data/artifacts/galaxy/<version>/                     # site + worker files (Task
   - device used;
   - creators truncated;
   - artifact sizes, site and Worker bundle, raw and gzip;
-  - the scraper's live counts vs the seed;
   - the `compare_k.md` table;
   - the unnamed-cluster list for each k;
   - the sanity checks.

@@ -117,3 +117,11 @@ Some Fandom pages cover several channels by the same creator (e.g. anything4view
 
   The content clause opens with "Except as expressly permitted by the Company (for example with respect to the use of text content … as set forth at our licensing page)". That points to the CC BY-SA licence on wiki text. The automated-access clause has no such exception.
 - **Conclusion:** robots.txt allows API access. The Terms forbid automated access without written permission. The scraper (Tasks 2–3) is on hold until the owner decides.
+
+### Data source decision (2026-11-18)
+- **Fandom dump:** `https://s3.amazonaws.com/wikia_xml_dumps/y/yo/youtube_pages_current.xml.7z`, 66.6 MB, Last-Modified 2025-10-27, storage class `DEEP_ARCHIVE`. A GET returns `InvalidObjectState`, so it can't be downloaded, and it is older than the seed (2025-12-13).
+- **Owner decision:**
+  - no scraper (Plan 2 Tasks 2–3 dropped);
+  - run frozen on the seed snapshot;
+  - the owner has asked Fandom for a fresh dump;
+  - build a dump importer once one exists ([issue #4](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/4)).
