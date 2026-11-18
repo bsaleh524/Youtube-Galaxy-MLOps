@@ -182,16 +182,16 @@ What changes downstream:
   4. Neighbours, leaders, silhouette and size stats.
 
   Cluster keys are left unassigned here. Task 8 assigns them.
-- `python -m pipeline.cluster --mode fit [--k N] [--run-id ID] [--no-save]`. `--no-save` writes to `data/runs/<run_id>/model/` instead of the live model; Task 10 uses it.
+- `python -m pipeline.cluster --mode fit [--k N] [--run-id ID] [--no-save]`. `--no-save` writes to `data/runs/<run_id>/model/` instead of the live model, without the ~240 MB UMAP pickles; Task 10 uses it.
 
-- [ ] **Step 1: Write failing tests on 300 synthetic points** (only where umap is installed). Cover:
+- [x] **Step 1: Write failing tests on 300 synthetic points** (only where umap is installed). Cover:
   - layout shape and finiteness;
   - the same seed gives an identical layout;
   - save then load round-trips exactly;
   - a second fit with a slightly perturbed X, aligned to the first, gives a mean point displacement below that of the unaligned fit;
   - a crash mid-save, simulated by raising inside save, leaves the old model intact.
-- [ ] **Step 2: Implement until green.** Record the umap-learn version and the time for one fit at n=20.8K in NOTES.
-- [ ] **Step 3: Commit and push.** (`feat(pipeline): cluster fit mode with persisted model`)
+- [x] **Step 2: Implement until green.** Record the umap-learn version and the time for one fit at n=20.8K in NOTES.
+- [x] **Step 3: Commit and push.** (`feat(pipeline): cluster fit mode with persisted model`)
 
 ### Task 7: Cluster — assign mode
 

@@ -22,7 +22,10 @@ def fit_kmeans(X: np.ndarray, k: int, seed: int = 42) -> tuple[np.ndarray, np.nd
 
     if not 1 <= k <= len(X):
         raise ValueError(f"k={k} must be between 1 and the number of vectors ({len(X)})")
-    km = KMeans(n_clusters=k, n_init=10, random_state=seed).fit(X)
+    # float64: with float32 input, sklearn's multi-threaded reductions gave different labels on
+    # repeated runs with the same seed (2026-11-18, 20.8K x 384). float64 was identical over
+    # repeats and ~4x faster.
+    km = KMeans(n_clusters=k, n_init=10, random_state=seed).fit(np.asarray(X, dtype=np.float64))
     return km.labels_.astype(np.int32), _unit(km.cluster_centers_)
 
 

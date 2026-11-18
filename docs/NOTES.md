@@ -144,3 +144,11 @@ scikit-learn 1.9.0 and scipy 1.17.1 are now also in the `ci` group (no torch), s
 - **Exact top-10 neighbours:** 4.9 s.
 - **KMeans k=120** (`n_init=10`, seed 42): 23.7 s. Cluster sizes: min 16, median 157.5, max 448, 0 empty, 1 under 20.
 - **Silhouette** (cosine, 10K sample): **0.014**, computed in 0.9 s. That is below the spec's "typical 0.03–0.10" for text. It's a preview only: Task 10 compares k = 60/120/200 and Checkpoint 2 explains the number.
+
+### Task 6: cluster fit mode (2026-11-18)
+- **Versions:** umap-learn 0.5.12, numba 0.67.0, pynndescent 0.6.0.
+- **Determinism fix:** KMeans on float32 input gave different labels on repeated runs in the same process with the same seed. The likely cause is sklearn's OpenMP reductions running in a different order; 8 threads were in use. Fitting on float64 gave identical labels over 3 repeats and took 6.6 s instead of 25 s. `clusterlib.fit_kmeans` now casts to float64. Two separate `pipeline.cluster --mode fit --k 120` runs then gave byte-identical labels, centroids, 2D/3D layouts and neighbours.
+- **Real fit, k=120:** 20,807 creators, about 47 s of compute plus about 25 s of start-up and loading. Stages: kmeans 8.1 s, UMAP 2D 20.2 s, UMAP 3D 11.1 s, neighbours 5.1 s, silhouette 0.8 s.
+  - Silhouette 0.0120.
+  - Sizes: min 43, median 173, max 440, 0 empty, 0 under 20.
+- **Model size:** about 240 MB per saved model. `umap2d.pkl` is 125 MB and `umap3d.pkl` 113 MB, because UMAP keeps its training data and neighbour index for `.transform`. `layout.npz` is 7.4 MB and centroids 184 KB. With `galaxy.prev` kept, that is about 0.5 GB on disk. This affects backup sizing (issue #3). Task 10's comparison runs should not pickle reducers.
