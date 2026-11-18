@@ -24,3 +24,7 @@ jobs:
           npm ci
           npm test
           npm run typecheck
+      - name: No large files in git (data stays local, issue #3)
+        run: |
+          big=$(git ls-files -z | xargs -0 du -k | awk '$1 > 1024 {print $2}')
+          if [ -n "$big" ]; then echo "tracked files over 1 MB:"; echo "$big"; exit 1; fi
