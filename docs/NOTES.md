@@ -92,3 +92,6 @@ Final Checkpoint 1 results:
 - Embedding parity: PASS (CLS pooling).
 - CPU: p50 ~2 ms, p90 ~3.5 ms, p99 open (issue #1).
 - LLM choice: deferred to Plan 7.
+
+### Records are wiki pages, not channels (owner note, 2026-11-17)
+Some Fandom pages cover several channels by the same creator (e.g. anything4views and Cold Ones). Each page stays one record (`fandom_{pageid}`), with the first channel link in `youtube_url`. Channels sharing a page are related, which is fine for clustering. Possible polish: keep every channel link ([issue #2](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/2)).

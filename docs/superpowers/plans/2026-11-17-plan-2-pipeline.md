@@ -68,7 +68,8 @@ data/artifacts/galaxy/<version>/                     # site + worker files (Task
 4. **Assign mode never changes cluster identity.** Keys, names, colours and existing creators' coordinates stay byte-identical across an assign run. → Task 7 test.
 5. **One-to-one name bootstrap.** Each seed name is used at most once. Below the overlap threshold, a cluster stays unnamed. → Task 8 test.
 6. **Colours** are distinct (pairwise minimum distance reported) and stable across runs. → Task 8 test.
-7. **Artifacts reference ids only.** `neighbors` and `clusters.json` leaders use ids, and `nodes` order is not something consumers rely on. → Task 9 test.
+7. **One record per wiki page, not per channel.** Some pages list several channels by the same creator (e.g. anything4views and Cold Ones). Keep one record per page (`fandom_{pageid}`) and keep the first channel link in `youtube_url`, as the seed does. Never split a page into several nodes. Collecting every channel link is a later polish item: [issue #2](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/2). → Task 2 test: a fixture page with two channel links gives one record.
+8. **Artifacts reference ids only.** `neighbors` and `clusters.json` leaders use ids, and `nodes` order is not something consumers rely on. → Task 9 test.
 
 ---
 
@@ -135,6 +136,7 @@ data/artifacts/galaxy/<version>/                     # site + worker files (Task
   - cleaned text drops navboxes/infobox noise the way the original did;
   - image and YouTube URL extraction;
   - `fetch_page` on a fake client builds `fandom_{pageid}`;
+  - a fixture page with two YouTube channel links gives one record whose `youtube_url` is the first link (issue #2);
   - a missing page returns `None`;
   - a test asserting the UA header carries no personal details (no `@`, nothing from `git config`).
 - [ ] **Step 4: Spot-check on the live wiki.** Fetch 3 pageids from the seed and diff their descriptions against the seed text. Small drift is fine. Different cleaning would be a bug. Record the result in NOTES.
