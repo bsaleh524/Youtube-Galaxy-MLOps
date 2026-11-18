@@ -138,3 +138,9 @@ Some Fandom pages cover several channels by the same creator (e.g. anything4view
   - TARGET vs Target cosine is 0.727, so they are separate rows with different texts;
   - Markiplier's nearest neighbours are Ethan Nestor, LS Mark, ImMarksman and Jacksepticeye;
   - MrBeast's nearest neighbours include Karl, MrBeast Memes and MrBeast Burger.
+
+### Task 5: cluster helpers (2026-11-18)
+scikit-learn 1.9.0 and scipy 1.17.1 are now also in the `ci` group (no torch), so CI tests the helpers. Preview on the real 20,807 × 384 embeddings, run on the M-series CPU:
+- **Exact top-10 neighbours:** 4.9 s.
+- **KMeans k=120** (`n_init=10`, seed 42): 23.7 s. Cluster sizes: min 16, median 157.5, max 448, 0 empty, 1 under 20.
+- **Silhouette** (cosine, 10K sample): **0.014**, computed in 0.9 s. That is below the spec's "typical 0.03–0.10" for text. It's a preview only: Task 10 compares k = 60/120/200 and Checkpoint 2 explains the number.

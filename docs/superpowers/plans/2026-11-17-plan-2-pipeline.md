@@ -153,14 +153,14 @@ What changes downstream:
 - `procrustes_align(new, old) -> new_aligned`: rotation, uniform scale and translation, fitted on shared rows only.
 - `size_stats(labels, k) -> dict` returns min/median/max, a count of empty clusters, and a count under 20.
 
-- [ ] **Step 1: Write failing tests on small synthetic blobs** (4 well-separated Gaussian blobs on the unit sphere). Cover:
+- [x] **Step 1: Write failing tests on small synthetic blobs** (4 well-separated Gaussian blobs on the unit sphere). Cover:
   - kmeans recovers the blobs;
   - `assign_nearest` agrees with kmeans labels on training points;
   - `top_neighbors` matches brute force and never includes self;
   - `procrustes_align` recovers a known rotation and scale to 1e-6;
   - silhouette lands in the expected range;
   - an empty cluster doesn't crash `leaders` or `size_stats`.
-- [ ] **Step 2: Implement until green. Commit and push.** (`feat(pipeline): cluster helpers`)
+- [x] **Step 2: Implement until green. Commit and push.** (`feat(pipeline): cluster helpers`)
 
 ### Task 6: Cluster — fit mode and persisted model
 
