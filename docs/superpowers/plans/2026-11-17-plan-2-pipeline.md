@@ -63,7 +63,7 @@ data/artifacts/galaxy/<version>/                     # site + worker files (Task
 
 1. **Same-title pages** (`TARGET` `fandom_449281` and `Target` `fandom_372805`). Both must survive snapshot → embed → cluster → build. → Task 1, 4 and 9 tests.
 2. **Scraper baseline without a re-crawl.** The first incremental run with no state file fetches only `lastrevid`, in batches of 50 pageids, and **zero page content** for seed pages. → Task 3 test: the fake client counts `action=parse` calls.
-3. **Removed pages** (gone from the category, or deleted) disappear from the snapshot, embeddings and artifacts, and nothing is left behind by index position. → Task 3 and 4 tests.
+3. **Pages gone from the wiki are kept and flagged** (owner decision 2026-11-18). The snapshot step (dump importer, [issue #4](https://github.com/bsaleh524/Youtube-Galaxy-MLOps/issues/4)) carries them forward with their last known text and `missing_from_wiki_since: <date>`; the site shows "no longer on the wiki". Only ids on a manual removal list (`data/removed_ids.txt`: spam, duplicates) leave the snapshot. Anything absent from the snapshot disappears from embeddings and artifacts, and nothing is left behind by index position. → Task 4 and 7 tests; carry-forward tested with the importer.
 4. **Assign mode never changes cluster identity.** Keys, names, colours and existing creators' coordinates stay byte-identical across an assign run. → Task 7 test.
 5. **One-to-one name bootstrap.** Each seed name is used at most once. Below the overlap threshold, a cluster stays unnamed. → Task 8 test.
 6. **Colours** are distinct (pairwise minimum distance reported) and stable across runs. → Task 8 test.
@@ -203,7 +203,7 @@ What changes downstream:
 - `cluster.assign(X, ids, model) -> AssignResult`:
   - Unchanged ids (same id and the same text_hash as when the model last saw them) keep their stored `cluster_key` and coordinates **exactly**.
   - New or changed ids get `assign_nearest` and `umap2d/3d.transform`.
-  - Removed ids are dropped.
+  - Ids absent from the snapshot are dropped (with carry-forward, that means only manual removals).
   - Neighbours are recomputed over all vectors.
   - Centroids (unit mean of current members) and leaders are recomputed. Keys, names and colours are untouched.
   - The result reports `drift_share` = (added + reassigned) / n since the fit. Above `DRIFT_RECOMMEND = 0.15` it logs "re-cluster recommended". It never fails on that.

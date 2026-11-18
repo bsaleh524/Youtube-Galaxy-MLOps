@@ -101,7 +101,7 @@ The work order re-clusters on every run. Instead, the cluster step has **two mod
 - **Assign mode** (every weekly / Airflow run): load the persisted model and keep cluster identity and coordinates fixed.
   - New or changed creators: nearest-centroid cluster assignment, placed with the fitted UMAP reducers' `transform`.
   - Unchanged creators keep their coordinates exactly.
-  - Removed creators are dropped.
+  - Creators absent from the snapshot are dropped. The snapshot step keeps pages that vanished from the wiki (owner decision 2026-11-18, flagged `missing_from_wiki_since`), so in practice only manually removed pages drop out.
   - Exact top-10 neighbours are recomputed over all vectors (cheap).
   - Centroids (for the Worker's search) and cluster leaders are recomputed from current members, but cluster keys, names and colours never change.
 

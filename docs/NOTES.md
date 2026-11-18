@@ -159,3 +159,7 @@ scikit-learn 1.9.0 and scipy 1.17.1 are now also in the `ci` group (no torch), s
 - Text hashes live in `layout.npz` (not a parquet, as the plan first said). A new `from_fit` column marks rows placed by the last fit; `drift_share` = share of rows *not* from the fit, so it is cumulative since the fit and handles removals. Over 0.15 it logs "re-cluster recommended" and still succeeds.
 - Real-data smoke (scratch, not saved): fit k=120 on 20,757, then assign with 50 new, 20 re-hashed, 10 removed → 12.6 s; 20,727 unchanged rows byte-identical; all 20 re-hashed (same vectors) kept their cluster and moved ~0.54 units on a ~10-unit layout (UMAP `transform` vs `fit_transform` jitter, expected).
 - A model saved with `--no-save` (no reducers) can't place new creators; assign then fails with a clear message, unless nothing is new.
+
+## 2026-11-18 — Decision: keep creators that vanish from the wiki
+
+Owner decision. When a fresh dump no longer contains a page we already have, the importer (issue #4) carries the record forward with its last known text and `missing_from_wiki_since: <date>`, and the site marks it "no longer on the wiki" (the CC BY-SA source link would be dead). A manual list `data/removed_ids.txt` drops pages deleted for good reason (spam, duplicates). Embed and cluster need no change: they process whatever the snapshot holds. Also confirmed: edited creators moving a little on re-placement is fine; unchanged creators keep their exact spot so the map doesn't shuffle weekly.
