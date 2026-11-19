@@ -360,4 +360,4 @@ What changes downstream:
   2. Run `make recluster build` with the chosen k.
   3. Record the chosen fit run's silhouette in NOTES as the baseline for Plan 5's gate floor.
   4. Commit and push.
-- [ ] **Step 5: Write Plan 3** (static site + home page + map-only publish) and ask the owner to review it.
+- [x] **Step 5: Write Plan 3** (static site + home page + map-only publish) and ask the owner to review it.
