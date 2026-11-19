@@ -220,3 +220,9 @@ Owner picked k=120 for now. The goal is many *niche* clusters that each make sen
 - `pipeline.run` skips everything when the latest build's `manifest.json` `inputs` (snapshot sha256, sha256 of `data/cluster_names.json`, model `fit_run_id`) match the current ones. So renaming a cluster or a re-fit triggers a rebuild even with the same snapshot.
 - Fresh run from scratch (old `data/model` and `data/embeddings` moved to `data/_before_plan2_run/`, not deleted): `make seed` 2 s, `make embed` 171 s (MPS), `make recluster K=120` 58 s, `make build` 11 s. Same embeddings sha (`c390a7b8`), silhouette 0.0120, 71 seed / 49 placeholder names. The new build `20261118-171817-c390a7b8` is byte-identical to the earlier `20261118-155920-c390a7b8` in nodes, clusters, neighbours, details and all Worker binaries.
 - `make pipeline FORCE=1`: embed 6.3 s, cluster 10.9 s, build 4.9 s (23 s wall). `make pipeline` again with no changes: "nothing changed", 1 s.
+
+## 2026-11-19 — Checkpoint 2
+
+- Report: `docs/CHECKPOINT_2.md`. Files safe to delete are tracked in `docs/TO_DELETE.md` (owner deletes; Claude only lists).
+- **Baseline for Plan 5's gate:** k=120 fit run `20261118-171713`, silhouette **0.0120** (cosine, 10K sample, seed 42). Chosen model = the fresh Task 11 fit; build `20261118-171847-c390a7b8`.
+- Sanity checks (15 creators): 6 ✓, 5 ◐, 4 ✗. Neighbours are often chosen by name lookalikes (MKBHD → Brownie, BigB; Kurzgesagt → KuruHS…). Issue #5 renamed to "Names dominate the embeddings" and widened.

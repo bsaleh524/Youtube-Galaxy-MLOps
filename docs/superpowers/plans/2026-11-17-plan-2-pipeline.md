@@ -337,8 +337,8 @@ What changes downstream:
 
 ### Task 12: 🛑 Checkpoint 2 — report to the owner
 
-- [ ] **Step 1: Run 15 sanity checks.** Pick 15 well-known creators across different niches. For each, list its 10 neighbours and its cluster name, and mark whether they look right (✓/✗) with a one-line reason. Include the `TARGET`/`Target` pair.
-- [ ] **Step 2: Write the report in plain language.** It covers:
+- [x] **Step 1: Run 15 sanity checks.** Pick 15 well-known creators across different niches. For each, list its 10 neighbours and its cluster name, and mark whether they look right (✓/✗) with a one-line reason. Include the `TARGET`/`Target` pair.
+- [x] **Step 2: Write the report in plain language.** It covers:
   - runtime per step;
   - device used;
   - creators truncated;
