@@ -123,3 +123,9 @@ Files you can delete are tracked in [`docs/TO_DELETE.md`](TO_DELETE.md) (about 6
 2. **Names:** look over the 49 placeholder names (list above, or `data/model/galaxy/registry.json`) and the naming packs. Put any names you want in `data/cluster_names.json`, e.g. `{"c071": "Alex & Friends"}`; they take effect on the next `make build`. This can happen any time; it doesn't block Plan 3.
 3. **The 0.2 match threshold** for reusing your Gemini names: matches just above it still looked right ("Spongebob Parodies & YTPs" at 0.20). Keep it, or should it be stricter?
 4. **Issue #5 timing:** fix it before Plan 3, or after Plan 3 but before the site goes public? I recommend the latter, so the website work isn't blocked. The website reads whatever the pipeline produces, so nothing has to be redone.
+
+## 9. Your answers (2026-11-19)
+
+- **Names:** keep the placeholder names for now; proper naming waits for issue #5 and issue #6.
+- **0.2 threshold:** should be stricter, but kept at 0.2 for now; revisit later.
+- **Issue #5:** fix after Plan 3 (the website), before the site goes public.

@@ -351,11 +351,11 @@ What changes downstream:
   - **what silhouette measures**: how much closer each creator is to its own cluster than to the next nearest one, on a scale from −1 to 1;
   - **why text clusters score low** (typically ~0.03–0.10): topics overlap and the embeddings are high-dimensional, so a low number is normal and not a failure;
   - **what to trade off**: more clusters give more specific names and colours but more naming work and smaller clusters. Fewer clusters give broader, duller groups (an anti-goal).
-- [ ] **Step 3: Ask the owner to do three things:**
+- [x] **Step 3: Ask the owner to do three things:**
   1. pick the cluster count;
   2. review the names in `data/cluster_registry.json` and the naming packs, putting fixes in `data/cluster_names.json`;
   3. say whether the 0.2 Jaccard threshold looks right.
-- [ ] **Step 4: After the owner answers:**
+- [x] **Step 4: After the owner answers:** (k=120; placeholder names kept; threshold stays 0.2 for now, owner wants it stricter later; #5 after Plan 3)
   1. Set `N_CLUSTERS` in `.env.example`, as a comment showing the chosen default. The owner edits `.env`.
   2. Run `make recluster build` with the chosen k.
   3. Record the chosen fit run's silhouette in NOTES as the baseline for Plan 5's gate floor.

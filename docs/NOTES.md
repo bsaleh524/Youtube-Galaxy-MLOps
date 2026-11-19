@@ -226,3 +226,9 @@ Owner picked k=120 for now. The goal is many *niche* clusters that each make sen
 - Report: `docs/CHECKPOINT_2.md`. Files safe to delete are tracked in `docs/TO_DELETE.md` (owner deletes; Claude only lists).
 - **Baseline for Plan 5's gate:** k=120 fit run `20261118-171713`, silhouette **0.0120** (cosine, 10K sample, seed 42). Chosen model = the fresh Task 11 fit; build `20261118-171847-c390a7b8`.
 - Sanity checks (15 creators): 6 ✓, 5 ◐, 4 ✗. Neighbours are often chosen by name lookalikes (MKBHD → Brownie, BigB; Kurzgesagt → KuruHS…). Issue #5 renamed to "Names dominate the embeddings" and widened.
+
+## 2026-11-19 — Checkpoint 2 answers
+
+- **Names:** keep the 49 placeholder names (top keywords, e.g. "music · songs · artists") for now. No owner names yet; `data/cluster_names.json` stays as is. Proper naming comes with issue #5 (cleaner clusters first) and issue #6 (automatic suggestions).
+- **Gemini-name threshold (0.2 Jaccard):** owner wants it stricter, but it stays at 0.2 for now; revisit with #5/#6, when the clusters change anyway.
+- **Issue #5 timing:** after Plan 3 (website), before the site goes public. Plan 3 must not depend on cluster names or counts staying fixed.
