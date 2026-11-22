@@ -3,10 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="An explorable map of 20,000+ YouTube creators, grouped by what the YouTube Wiki says about them." />
+    <meta name="color-scheme" content="dark" />
     <title>YouTube Galaxy</title>
   </head>
   <body>
-    <main id="app"></main>
+    <header class="top">
+      <h1 class="brand"><a href="../">YouTube Galaxy</a></h1>
+      <div id="search" class="search"></div>
+      <div id="toggles" class="toggles"></div>
+    </header>
+    <main class="stage">
+      <div id="map" class="map" aria-label="Map of YouTube creators"></div>
+      <div id="tooltip" class="tooltip" role="status" hidden></div>
+      <div id="status" class="status" role="status">Loading the galaxy…</div>
+      <aside id="legend" class="legend" aria-label="Clusters"></aside>
+      <aside id="detail" class="detail" aria-label="Creator details" hidden></aside>
+      <aside id="chat-slot" hidden></aside>
+    </main>
+    <footer id="footer" class="footer"></footer>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

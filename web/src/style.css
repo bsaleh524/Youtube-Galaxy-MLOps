@@ -1,0 +1,53 @@
+:root {
+  --bg: #07070f;
+  --panel: rgba(18, 18, 34, 0.92);
+  --panel-solid: #121222;
+  --line: #2a2a48;
+  --text: #ecebff;
+  --muted: #a3a2c2;
+  --accent: #9d8cff;
+  --focus: #ffd166;
+  --radius: 10px;
+  --gutter: 16px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { display: flex; flex-direction: column; background: radial-gradient(ellipse at 50% 40%, #141432 0%, var(--bg) 70%); }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+.top {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  padding: 10px var(--gutter); border-bottom: 1px solid var(--line); background: var(--panel-solid); z-index: 3;
+}
+.brand { font-size: 1.1rem; margin: 0; white-space: nowrap; }
+.brand a { color: var(--text); text-decoration: none; }
+.search { flex: 1 1 240px; min-width: 0; position: relative; }
+.toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+.toggle {
+  border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 4px 12px; font-size: 0.85rem;
+}
+.toggle[aria-pressed="true"] { background: var(--accent); color: #0b0b18; border-color: var(--accent); }
+
+.stage { position: relative; flex: 1; min-height: 0; }
+.map { position: absolute; inset: 0; }
+.tooltip {
+  position: absolute; pointer-events: none; z-index: 4; max-width: 260px;
+  background: var(--panel-solid); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 0.85rem;
+}
+.tooltip .sub { color: var(--muted); font-size: 0.78rem; }
+.status {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: var(--gutter);
+  color: var(--muted); pointer-events: none;
+}
+.status:empty { display: none; }
+
+.footer {
+  padding: 6px var(--gutter); font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--line);
+  background: var(--panel-solid); display: flex; flex-wrap: wrap; gap: 4px 12px;
+}

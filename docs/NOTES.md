@@ -238,3 +238,9 @@ Owner picked k=120 for now. The goal is many *niche* clusters that each make sen
 - **Licence:** `https://youtube.fandom.com/api.php?action=query&meta=siteinfo&siprop=rightsinfo` (checked 2026-11-22) → `{"url": "https://www.fandom.com/licensing", "text": "CC-BY-SA"}`. No version number. Fandom answers automated fetches of normal pages and of `fandom.com/licensing` with 402/403, so the version could not be read. The build's attribution now has `license: "CC BY-SA"` and `license_url: https://www.fandom.com/licensing`. Owner to confirm the version in a browser at Checkpoint 3a.
 - `pipeline/publish.py` lays out the Hostinger tree (see Plan 3) and writes it to a `Remote`. `LocalRemote` mirrors it locally: `make web-data` (data only → `web/.devdata`, served by `make web-dev` via Vite's `publicDir` in serve mode only) and `make stage` (full tree → `data/stage/public_html`). Uploads go in order with `manifest.json` last; a failed upload stops and cleans its `.tmp`.
 - Build details now carry `missing_from_wiki_since` when a record has it (none do yet; issue #4).
+
+## 2026-11-22 — Plan 3 Task 3: map
+
+- deck.gl `@deck.gl/core` + `@deck.gl/layers` 9.4.1 (npm, 2026-11-22). One `ScatterplotLayer` over binary attributes (Float32 positions, Uint8 RGBA colours); `OrthographicView` for 2D, `OrbitView` for 3D (starts 0.6 zoom levels further out than a flat fit, because the camera is perspective and rotated).
+- Production JS after Task 3: ~782 KB raw / ~234 KB gzip across chunks (main chunk 618 KB / 174 KB).
+- Visual checks use headless Chrome (SwiftShader WebGL) driven over the DevTools protocol from a scratch script; 20.8K points render in 2D and 3D.
