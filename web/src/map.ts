@@ -79,6 +79,23 @@ export function createMap(parent: HTMLDivElement, g: Galaxy, h: MapHandlers): Ga
         updateTriggers: { getRadius: performance },
       }),
     ];
+    if (links.from !== null) {
+      out.push(
+        new ScatterplotLayer({
+          id: "selected-ring",
+          data: [pos(links.from)],
+          getPosition: (d: [number, number, number]) => d,
+          radiusUnits: "pixels",
+          getRadius: 7,
+          stroked: true,
+          filled: false,
+          lineWidthUnits: "pixels",
+          getLineWidth: 2,
+          getLineColor: [255, 255, 255, 255],
+          billboard: mode === "3d",
+        }),
+      );
+    }
     if (links.from !== null && !performance && links.to.length) {
       const from = pos(links.from);
       out.push(
@@ -134,7 +151,7 @@ export function createMap(parent: HTMLDivElement, g: Galaxy, h: MapHandlers): Ga
       render();
     },
     flyTo(i) {
-      jump(pos(i), Math.max(viewState.zoom ?? 0, homeView(mode).zoom + 3));
+      jump(pos(i), Math.max(viewState.zoom ?? 0, homeView(mode).zoom + 2));
     },
     flyToPoint(xy) {
       jump(xy, Math.max(viewState.zoom ?? 0, homeView(mode).zoom + 1.5));
