@@ -324,11 +324,14 @@ def live_version(remote: Remote, galaxy_dir: str) -> str | None:
         return None
 
 
-def prune_plan(remote: Remote, galaxy_dir: str, live: str | None, keep: int = 3) -> list[Action]:
-    """Remove data/<version> dirs beyond the `keep` newest; never the live one."""
+def prune_plan(remote: Remote, galaxy_dir: str, live: str | None, keep: int = 3,
+               also_keep: tuple[str | None, ...] = ()) -> list[Action]:
+    """Remove data/<version> dirs beyond the `keep` newest; never `live` or anything in `also_keep`
+    (the version that was live before this publish: pages already open are still using it)."""
     data = _join(galaxy_dir, "data")
     versions = sorted(remote.listdir(data))
-    old = [v for v in versions[:-keep] if v != live] if len(versions) > keep else []
+    protected = {live, *also_keep}
+    old = [v for v in versions[:-keep] if v not in protected] if len(versions) > keep else []
     return [Action("rmtree", _join(data, v), None, "older than the newest 3") for v in old]
 
 
@@ -428,26 +431,24 @@ def main(argv: list[str] | None = None) -> int:
                 log(p)
             if any(not p.startswith("warning: ") for p in problems):
                 return 1
-        actions: list[Action] = []
-        if a.target in ("home", "all"):
-            actions += plan_uploads(home_files(HOME_DIR), remote, home_base, ALWAYS_HOME)
-        if with_galaxy:
-            actions += plan_uploads(galaxy_files(build_dir, dist), remote, galaxy_base, ALWAYS_GALAXY)
+        # Galaxy first, home page last: the home page links to /galaxy/, so it only goes up once the map is live.
+        previous = live_version(remote, galaxy_base) if with_galaxy else None
+        galaxy_acts = plan_uploads(galaxy_files(build_dir, dist), remote, galaxy_base, ALWAYS_GALAXY) if with_galaxy else []
+        home_list = home_files(HOME_DIR) if a.target in ("home", "all") else []
+        # Home files aren't versioned, so a same-size edit must still be uploaded: always send them all.
+        home_acts = plan_uploads(home_list, remote, home_base, {rel for rel, _ in home_list})
+        prune = lambda: prune_plan(remote, galaxy_base, version, also_keep=(previous,)) if with_galaxy else []
         where = a.to_dir or f"{settings.hostinger_sftp_host}:{home_base}"
         log(f"build {version} -> {where}")
         if a.dry_run:
-            print(format_actions(actions))
-            if with_galaxy:
-                prune = prune_plan(remote, galaxy_base, version)
-                if prune:
-                    print(format_actions(prune))
+            print(format_actions(galaxy_acts + home_acts + prune()))
             return 0
-        execute(actions, remote, log=log)
-        if not with_galaxy:
-            return 0
-        if _verify_live(a, settings, version, log):
-            return 1  # leave old versions in place until the new one is confirmed live
-        execute(prune_plan(remote, galaxy_base, version), remote, log=log)
+        if with_galaxy:
+            execute(galaxy_acts, remote, log=log)
+            if _verify_live(a, settings, version, log):
+                return 1  # keep old versions and the old home page until the new map is confirmed live
+        execute(home_acts, remote, log=log)
+        execute(prune(), remote, log=log)
     return 0
 
 

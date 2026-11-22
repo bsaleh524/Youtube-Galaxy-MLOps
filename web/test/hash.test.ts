@@ -22,3 +22,9 @@ describe("hash links", () => {
     expect(formatHash({})).toBe("");
   });
 });
+
+describe("hash links (malformed)", () => {
+  it("ignores a link that can't be decoded", () => {
+    expect(parseHash("#/creator/%E0")).toEqual({});
+  });
+});

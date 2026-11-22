@@ -102,3 +102,12 @@ describe("detail panel", () => {
     expect(v.onClose).toHaveBeenCalled();
   });
 });
+
+describe("detail panel links from wiki data", () => {
+  it("never renders a non-http(s) link", () => {
+    const { el } = render({
+      detail: { ...DETAIL, youtube_url: "javascript:alert(1)", source_url: "javascript:alert(2)", thumbnail: null },
+    });
+    expect(links(el).some((l) => l.getAttribute("href")?.startsWith("javascript:"))).toBe(false);
+  });
+});

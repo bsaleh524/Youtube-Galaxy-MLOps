@@ -29,6 +29,7 @@ export function mountSearchBox(
   let active = -1;
 
   function close() {
+    results = []; // a later Enter must not pick from a stale list
     list.hidden = true;
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");

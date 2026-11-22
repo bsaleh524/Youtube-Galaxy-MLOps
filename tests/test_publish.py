@@ -314,3 +314,58 @@ def test_verify_network_error_is_false():
         raise OSError("down")
 
     assert verify("https://x.example/manifest.json", "v1", fetch=boom) is False
+
+
+# ---------------------------------------------------------------- final-review fixes
+
+def test_publish_keeps_previously_live_version_after_rollback(tmp_path, build_dir, dist_dir, monkeypatch):
+    """Rolled back to the oldest version, then published: open pages still use that version."""
+    monkeypatch.setattr(publish, "DIST_DIR", dist_dir)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    old = ["20260101-000000-aaaaaaaa", "20260102-000000-bbbbbbbb", "20260103-000000-cccccccc"]
+    root = _remote_with_versions(tmp_path, old, old[0])
+    assert publish.main(["galaxy", "--to-dir", str(root)]) == 0
+    kept = sorted(p.name for p in (root / "data").iterdir())
+    assert old[0] in kept and V in kept
+
+
+def test_home_files_always_uploaded(tmp_path, monkeypatch):
+    """home.css isn't versioned: an edit that keeps the same size must still go up."""
+    home = tmp_path / "home"
+    _write(home / "index.html", "home")
+    _write(home / "home.css", "a{color:#1d1d36}")
+    monkeypatch.setattr(publish, "HOME_DIR", home)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    (tmp_path / "artifacts" / "galaxy" / V).mkdir(parents=True)
+    _write(tmp_path / "artifacts" / "galaxy" / V / "manifest.json", json.dumps({"version": V}))
+    out = tmp_path / "site"
+    assert publish.main(["home", "--to-dir", str(out)]) == 0
+    _write(home / "home.css", "a{color:#2a2a40}")
+    assert publish.main(["home", "--to-dir", str(out)]) == 0
+    assert (out / "home.css").read_text() == "a{color:#2a2a40}"
+
+
+def test_all_uploads_galaxy_before_home(tmp_path, build_dir, dist_dir, monkeypatch, capsys):
+    monkeypatch.setattr(publish, "DIST_DIR", dist_dir)
+    home = tmp_path / "home"
+    _write(home / "index.html", "home")
+    monkeypatch.setattr(publish, "HOME_DIR", home)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("HOSTINGER_REMOTE_DIR", "public_html/galaxy")
+    assert publish.main(["all", "--to-dir", str(tmp_path / "s"), "--dry-run"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    pos = {line.split()[1]: n for n, line in enumerate(lines)}
+    assert pos["galaxy/manifest.json"] < pos["index.html"]
+
+
+def test_home_not_uploaded_when_galaxy_fails(tmp_path, build_dir, dist_dir, monkeypatch):
+    monkeypatch.setattr(publish, "DIST_DIR", dist_dir)
+    home = tmp_path / "home"
+    _write(home / "index.html", "home")
+    monkeypatch.setattr(publish, "HOME_DIR", home)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    out = tmp_path / "s"
+    monkeypatch.setattr(publish, "LocalRemote", lambda root: FailingRemote(root, fail_on=2))
+    with pytest.raises(OSError):
+        publish.main(["all", "--to-dir", str(out)])
+    assert not (out / "index.html").exists()

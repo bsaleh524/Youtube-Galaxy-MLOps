@@ -7,7 +7,12 @@ export interface HashState {
 export function parseHash(h: string): HashState {
   const m = /^#\/(creator|cluster)\/(.+)$/.exec(h);
   if (!m) return {};
-  const value = decodeURIComponent(m[2]);
+  let value: string;
+  try {
+    value = decodeURIComponent(m[2]);
+  } catch {
+    return {}; // a garbled link (e.g. "%E0") is ignored, not fatal
+  }
   return m[1] === "creator" ? { creator: value } : { cluster: value };
 }
 

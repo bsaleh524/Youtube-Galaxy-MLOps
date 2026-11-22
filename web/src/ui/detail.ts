@@ -17,6 +17,17 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
+/** Wiki data is untrusted: only http(s) URLs become links (no javascript: and the like). */
+export function safeUrl(href: string | null | undefined): string | null {
+  if (!href) return null;
+  try {
+    const u = new URL(href);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 function link(href: string, text: string) {
   const a = el("a", undefined, text);
   a.href = href;
@@ -71,8 +82,10 @@ export function renderDetail(root: HTMLElement, v: DetailView): void {
     if (d.missing_from_wiki_since) root.append(el("p", "flag", `No longer on the wiki (since ${d.missing_from_wiki_since})`));
     if (d.bio) root.append(el("p", "bio", d.bio));
     const links = el("p", "links");
-    links.append(link(d.source_url, "Read on the YouTube Wiki"));
-    if (d.youtube_url) links.append(link(d.youtube_url, "YouTube channel"));
+    const source = safeUrl(d.source_url);
+    const youtube = safeUrl(d.youtube_url);
+    if (source) links.append(link(source, "Read on the YouTube Wiki"));
+    if (youtube) links.append(link(youtube, "YouTube channel"));
     root.append(links);
   }
 
