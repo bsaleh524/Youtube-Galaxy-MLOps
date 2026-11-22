@@ -5,8 +5,11 @@ import { createLoader, DataError, loadGalaxy, loadManifest, type Galaxy, type Lo
 import { formatHash, parseHash, type HashState } from "./hash";
 import { createMap, type GalaxyMap } from "./map";
 import { makeSearch } from "./search";
+import { renderDetail } from "./ui/detail";
+import { renderFooter } from "./ui/footer";
 import { renderLegend } from "./ui/legend";
 import { mountSearchBox } from "./ui/search-box";
+import { loadSettings, mountToggles, type Settings } from "./ui/toggles";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -18,6 +21,7 @@ export interface App {
   neighbours: Record<string, string[]> | null;
   selected: number | null;
   cluster: number | null;
+  settings: Settings;
 }
 
 function showTooltip(g: Galaxy, i: number | null, x: number, y: number) {
@@ -49,10 +53,37 @@ function neighbourIdx(app: App, i: number): number[] {
   return ids.map((id) => app.g.index.get(id)).filter((j): j is number => j !== undefined);
 }
 
-// Task 5 replaces this with the detail panel.
-let showDetail: (app: App, i: number | null) => void = () => {};
-export function setDetailRenderer(fn: (app: App, i: number | null) => void) {
-  showDetail = fn;
+function showDetail(app: App, i: number | null) {
+  const panel = $("detail");
+  if (i === null) {
+    panel.hidden = true;
+    return;
+  }
+  const { g } = app;
+  const info = g.clusters[g.cluster[i]];
+  const id = g.ids[i];
+  const neighbours = app.neighbours
+    ? neighbourIdx(app, i).map((j) => ({ id: g.ids[j], title: g.titles[j] }))
+    : null;
+  const draw = (detail: Parameters<typeof renderDetail>[1]["detail"]) =>
+    renderDetail(panel, {
+      title: g.titles[i],
+      cluster: { name: info.name, colour: info.colour },
+      detail,
+      neighbours,
+      onSelect: (nid) => {
+        const j = g.index.get(nid);
+        if (j !== undefined) selectCreator(app, j);
+      },
+      onRetry: () => showDetail(app, i),
+      onClose: () => clearSelection(app),
+    });
+  draw("loading");
+  panel.hidden = false;
+  app.loader.details(info.key).then(
+    (d) => app.selected === i && draw(d[id] ?? null),
+    () => app.selected === i && draw("error"),
+  );
 }
 
 export function selectCreator(app: App, i: number, fly = true) {
@@ -74,7 +105,7 @@ export function selectCluster(app: App, c: number) {
   app.map.setFocus({ cluster: c });
   app.map.setLinks(null, []);
   showDetail(app, null);
-  const mode3d = document.body.dataset.mode === "3d";
+  const mode3d = app.settings.mode === "3d";
   const centre = mode3d ? [info.cx3, info.cy3, info.cz3] : [info.cx2, info.cy2, 0];
   if (centre.every((v) => v !== null)) app.map.flyToPoint(centre as number[]);
   setHash({ cluster: info.key });
@@ -127,7 +158,9 @@ async function start() {
     return;
   }
   status.textContent = "";
-  const app = { g, manifest, neighbours: null, selected: null, cluster: null } as unknown as App;
+  renderFooter($("footer"), manifest);
+  const settings = loadSettings();
+  const app = { g, manifest, neighbours: null, selected: null, cluster: null, settings } as unknown as App;
   app.loader = createLoader(fetch, BASE, manifest.version);
   app.map = createMap($<HTMLDivElement>("map"), g, {
     onHover: (i, x, y) => showTooltip(g, i, x, y),
@@ -141,18 +174,29 @@ async function start() {
   };
   renderLegend($("legend"), g.clusters, titleOf, (c) => selectCluster(app, c));
 
-  // Temporary 2D/3D switch; Task 5 replaces it with the toggles module.
-  const btn = document.createElement("button");
-  btn.className = "toggle";
-  btn.textContent = "3D";
-  btn.setAttribute("aria-pressed", "false");
-  btn.onclick = () => {
-    const to3d = btn.getAttribute("aria-pressed") !== "true";
-    btn.setAttribute("aria-pressed", String(to3d));
-    document.body.dataset.mode = to3d ? "3d" : "2d";
-    app.map.setMode(to3d ? "3d" : "2d");
+  const applySettings = (s: Settings) => {
+    app.settings = s;
+    app.map.setMode(s.mode);
+    app.map.setPerformance(s.performance);
+    if (app.selected !== null) selectCreator(app, app.selected, false);
   };
-  $("toggles").append(btn);
+  mountToggles($("toggles"), settings, applySettings);
+  applySettings(settings);
+
+  // Cluster list: open on wide screens, a toggle-able sheet on phones.
+  const legend = $("legend");
+  const legendBtn = document.createElement("button");
+  legendBtn.type = "button";
+  legendBtn.className = "toggle legend-toggle";
+  legendBtn.textContent = "Clusters";
+  legendBtn.setAttribute("aria-controls", "legend");
+  const setLegend = (open: boolean) => {
+    legend.classList.toggle("closed", !open);
+    legendBtn.setAttribute("aria-expanded", String(open));
+  };
+  setLegend(window.matchMedia?.("(min-width: 700px)").matches ?? true);
+  legendBtn.addEventListener("click", () => setLegend(legend.classList.contains("closed")));
+  $("toggles").prepend(legendBtn);
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) clearSelection(app);
