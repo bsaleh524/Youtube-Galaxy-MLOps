@@ -24,6 +24,12 @@ jobs:
           npm ci
           npm test
           npm run typecheck
+      - name: Web
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
       - name: No large files in git (data stays local, issue #3)
         run: |
           big=$(git ls-files -z | xargs -0 du -k | awk '$1 > 1024 {print $2}')
