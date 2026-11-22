@@ -163,3 +163,23 @@ def test_version_format_and_no_overwrite(built, tmp_path):
     assert make_version("abcdef1234", datetime(2026, 11, 18, 1, 2, 3, tzinfo=UTC)) == "20261118-010203-abcdef12"
     with pytest.raises(FileExistsError):
         build(records, X, model, {}, out.parent, out.name)
+
+
+def test_details_pass_through_missing_flag(tmp_path, built):
+    _, records, X, model = built
+    records = {k: dict(v) for k, v in records.items()}
+    flagged = model.ids[1]
+    records[flagged]["missing_from_wiki_since"] = "2026-12-01"
+    out2 = build(records, X, model, {}, tmp_path / "again", "20261118-000001-abcdef12")
+    details = {}
+    for f in (out2 / "details").glob("*.json"):
+        details.update(json.loads(f.read_text(encoding="utf-8")))
+    assert details[flagged]["missing_from_wiki_since"] == "2026-12-01"
+    assert all("missing_from_wiki_since" not in d for rid, d in details.items() if rid != flagged)
+
+
+def test_attribution_has_license_url(built):
+    att = load(built[0], "manifest.json")["attribution"]
+    # as reported by the wiki itself (MediaWiki siteinfo rightsinfo, checked 2026-11-22)
+    assert att["license"] == "CC BY-SA"
+    assert att["license_url"] == "https://www.fandom.com/licensing"

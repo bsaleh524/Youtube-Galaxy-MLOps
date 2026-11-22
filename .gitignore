@@ -24,6 +24,7 @@ data/
 # Node
 node_modules/
 web/dist/
+web/.devdata/
 worker/.wrangler/
 worker/assets/*
 !worker/assets/.gitkeep

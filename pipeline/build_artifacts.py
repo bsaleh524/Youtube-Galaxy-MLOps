@@ -44,6 +44,8 @@ ATTRIBUTION = {
     "source": "YouTube Wiki (Fandom)",
     "source_url": "https://youtube.fandom.com/",
     "license": "CC BY-SA",
+    # The wiki's own rightsinfo (MediaWiki siteinfo, checked 2026-11-22); it names no version.
+    "license_url": "https://www.fandom.com/licensing",
     "note": "Creator text comes from the YouTube Wiki; each creator links its source page.",
 }
 
@@ -68,6 +70,18 @@ def make_version(embeddings_sha256: str, now: datetime | None = None) -> str:
 def _dump(path: Path, obj) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def _detail(r: dict) -> dict:
+    d = {
+        "bio": cut(r.get("description"), BIO_CHARS),
+        "source_url": r["url"],
+        "youtube_url": r.get("youtube_url"),
+        "thumbnail": r.get("thumbnail"),
+    }
+    if r.get("missing_from_wiki_since"):  # page vanished from the wiki; kept and flagged (issue #4)
+        d["missing_from_wiki_since"] = r["missing_from_wiki_since"]
+    return d
 
 
 def _round(a: np.ndarray) -> list[float]:
@@ -141,13 +155,7 @@ def build(
 
         for c, key in enumerate(keys):
             _dump(tmp / "details" / f"cluster_{key}.json", {
-                ids[i]: {
-                    "bio": cut(records[ids[i]].get("description"), BIO_CHARS),
-                    "source_url": records[ids[i]]["url"],
-                    "youtube_url": records[ids[i]].get("youtube_url"),
-                    "thumbnail": records[ids[i]].get("thumbnail"),
-                }
-                for i in np.flatnonzero(labels == c)
+                ids[i]: _detail(records[ids[i]]) for i in np.flatnonzero(labels == c)
             })
 
         # Worker: rows grouped by cluster (stable within a cluster), meta in the same row order.

@@ -232,3 +232,9 @@ Owner picked k=120 for now. The goal is many *niche* clusters that each make sen
 - **Names:** keep the 49 placeholder names (top keywords, e.g. "music · songs · artists") for now. No owner names yet; `data/cluster_names.json` stays as is. Proper naming comes with issue #5 (cleaner clusters first) and issue #6 (automatic suggestions).
 - **Gemini-name threshold (0.2 Jaccard):** owner wants it stricter, but it stays at 0.2 for now; revisit with #5/#6, when the clusters change anyway.
 - **Issue #5 timing:** after Plan 3 (website), before the site goes public. Plan 3 must not depend on cluster names or counts staying fixed.
+
+## 2026-11-22 — Plan 3 Task 1: publish layout, licence
+
+- **Licence:** `https://youtube.fandom.com/api.php?action=query&meta=siteinfo&siprop=rightsinfo` (checked 2026-11-22) → `{"url": "https://www.fandom.com/licensing", "text": "CC-BY-SA"}`. No version number. Fandom answers automated fetches of normal pages and of `fandom.com/licensing` with 402/403, so the version could not be read. The build's attribution now has `license: "CC BY-SA"` and `license_url: https://www.fandom.com/licensing`. Owner to confirm the version in a browser at Checkpoint 3a.
+- `pipeline/publish.py` lays out the Hostinger tree (see Plan 3) and writes it to a `Remote`. `LocalRemote` mirrors it locally: `make web-data` (data only → `web/.devdata`, served by `make web-dev` via Vite's `publicDir` in serve mode only) and `make stage` (full tree → `data/stage/public_html`). Uploads go in order with `manifest.json` last; a failed upload stops and cleans its `.tmp`.
+- Build details now carry `missing_from_wiki_since` when a record has it (none do yet; issue #4).

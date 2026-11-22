@@ -2,7 +2,8 @@
 # Still to come in later plans: eval, gate, publish, rollback (and a scraper/importer, issue #4).
 
 .PHONY: help setup mlflow airflow web-dev web-build worker-dev worker-deploy test clean \
-	seed embed cluster recluster compare-k build pipeline
+	seed embed cluster recluster compare-k build pipeline \
+	web-data stage
 
 PY := uv run python -m
 .DEFAULT_GOAL := help
@@ -32,6 +33,14 @@ build:       ## write data/artifacts/galaxy/<version>/ (site + Worker files)
 
 pipeline:    ## embed -> cluster -> build; skips if nothing changed (FORCE=1 to rebuild)
 	$(PY) pipeline.run $(if $(FORCE),--force)
+
+# --- Website ---
+
+web-data:    ## copy the newest build's site data into web/.devdata for make web-dev
+	$(PY) pipeline.publish galaxy --data-only --to-dir web/.devdata
+
+stage:       ## mirror the Hostinger tree into data/stage/public_html (needs make web-build)
+	$(PY) pipeline.publish all --to-dir data/stage/public_html
 
 setup:
 	uv sync

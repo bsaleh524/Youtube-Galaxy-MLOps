@@ -62,3 +62,32 @@ def test_env_example_leaves_every_secret_unset(monkeypatch):
                "HOSTINGER_SFTP_USER", "HOSTINGER_SFTP_PASSWORD", "HOSTINGER_SFTP_KEY_PATH",
                "GROQ_API_KEY", "SYNOLOGY_BACKUP_DIR"]
     assert {k: values.get(k) for k in secrets if values.get(k)} == {}
+
+
+HOSTINGER_ENV = ["HOSTINGER_SFTP_HOST", "HOSTINGER_SFTP_PORT", "HOSTINGER_SFTP_USER", "HOSTINGER_SFTP_PASSWORD",
+                 "HOSTINGER_SFTP_KEY_PATH", "HOSTINGER_REMOTE_DIR", "HOSTINGER_HOME_DIR", "SITE_BASE_PATH",
+                 "SITE_ORIGIN"]
+
+
+def test_hostinger_defaults(tmp_path, monkeypatch):
+    for k in HOSTINGER_ENV:
+        monkeypatch.delenv(k, raising=False)
+    s = load_settings(tmp_path / "missing.env")
+    assert s.hostinger_sftp_host is None
+    assert s.hostinger_sftp_port is None
+    assert s.hostinger_sftp_password is None
+    assert s.hostinger_remote_dir == "public_html/galaxy"
+    assert s.hostinger_home_dir == "public_html"
+    assert s.site_base_path == "/galaxy/"
+    assert s.site_origin == "https://spookypharaoh.com"
+
+
+def test_hostinger_values_read_and_port_cast(tmp_path, monkeypatch):
+    for k in HOSTINGER_ENV:
+        monkeypatch.delenv(k, raising=False)
+    f = tmp_path / ".env"
+    f.write_text("HOSTINGER_SFTP_HOST=example.host\nHOSTINGER_SFTP_PORT=65002\nHOSTINGER_SFTP_USER=u1\n"
+                 "HOSTINGER_SFTP_PASSWORD=\nHOSTINGER_REMOTE_DIR=public_html/galaxy\n")
+    s = load_settings(f)
+    assert (s.hostinger_sftp_host, s.hostinger_sftp_port, s.hostinger_sftp_user) == ("example.host", 65002, "u1")
+    assert s.hostinger_sftp_password is None

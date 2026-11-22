@@ -20,6 +20,15 @@ class Settings:
     cloudflare_account_id: str | None = None
     cloudflare_api_token: str | None = None
     mlflow_port: int = 5001
+    hostinger_sftp_host: str | None = None
+    hostinger_sftp_port: int | None = None
+    hostinger_sftp_user: str | None = None
+    hostinger_sftp_password: str | None = None
+    hostinger_sftp_key_path: str | None = None
+    hostinger_remote_dir: str = "public_html/galaxy"
+    hostinger_home_dir: str = "public_html"
+    site_base_path: str = "/galaxy/"
+    site_origin: str = "https://spookypharaoh.com"
 
 
 # Settings field -> environment variable name. query_prefix is fixed, not configurable.
@@ -30,8 +39,17 @@ _ENV_NAMES = {
     "cloudflare_account_id": "CLOUDFLARE_ACCOUNT_ID",
     "cloudflare_api_token": "CLOUDFLARE_API_TOKEN",
     "mlflow_port": "MLFLOW_PORT",
+    "hostinger_sftp_host": "HOSTINGER_SFTP_HOST",
+    "hostinger_sftp_port": "HOSTINGER_SFTP_PORT",
+    "hostinger_sftp_user": "HOSTINGER_SFTP_USER",
+    "hostinger_sftp_password": "HOSTINGER_SFTP_PASSWORD",
+    "hostinger_sftp_key_path": "HOSTINGER_SFTP_KEY_PATH",
+    "hostinger_remote_dir": "HOSTINGER_REMOTE_DIR",
+    "hostinger_home_dir": "HOSTINGER_HOME_DIR",
+    "site_base_path": "SITE_BASE_PATH",
+    "site_origin": "SITE_ORIGIN",
 }
-_CASTS = {"n_clusters": int, "mlflow_port": int, "data_dir": Path}
+_CASTS = {"n_clusters": int, "mlflow_port": int, "hostinger_sftp_port": int, "data_dir": Path}
 
 
 def _clean(value: str | None) -> str | None:
