@@ -155,7 +155,7 @@ Local mirrors of the same tree:
   - `newest_build(artifacts: Path) -> Path`.
   - CLI: `python -m pipeline.publish galaxy|home|all [--to-dir DIR] [--data-only] [--version V] [--dry-run]`.
 
-- [ ] **Step 1: Write the failing tests** in `tests/test_publish.py`. Build a tiny fake build dir (manifest with `version`, `nodes.json`, `clusters.json`, `neighbors.json`, `details/cluster_c001.json`, `worker/index.bin`) and a fake dist (`index.html`, `.htaccess`, `assets/app-1a2b.js`):
+- [x] **Step 1: Write the failing tests** in `tests/test_publish.py`. Build a tiny fake build dir (manifest with `version`, `nodes.json`, `clusters.json`, `neighbors.json`, `details/cluster_c001.json`, `worker/index.bin`) and a fake dist (`index.html`, `.htaccess`, `assets/app-1a2b.js`):
   - `test_galaxy_files_order`: the last item is `("manifest.json", <build>/manifest.json)`; `index.html` comes after every `assets/` path; every data path starts with `data/<version>/`; no path contains `worker`.
   - `test_galaxy_files_data_only`: with `dist_dir=None`, no `assets/`, `index.html` or `.htaccess`; manifest is still last.
   - `test_plan_skips_same_size_except_always`: with a `LocalRemote` already holding an identical `data/<v>/nodes.json` and `manifest.json`, nodes → `skip` and manifest → `put`.
@@ -165,12 +165,12 @@ Local mirrors of the same tree:
     - `test_details_pass_through_missing_flag`: a record with `missing_from_wiki_since: "2026-12-01"` keeps that key in its details entry; records without it have no such key.
     - `test_attribution_has_license_url`.
   - In `tests/test_config.py`: Hostinger env values are read; port is cast to int; blank values become `None`; defaults match the list above.
-- [ ] **Step 2: Run** `uv run pytest tests/test_publish.py tests/test_build_artifacts.py tests/test_config.py -q`. Expected: FAIL (no module / missing keys).
-- [ ] **Step 3: Verify the licence.**
+- [x] **Step 2: Run** `uv run pytest tests/test_publish.py tests/test_build_artifacts.py tests/test_config.py -q`. Expected: FAIL (no module / missing keys).
+- [x] **Step 3: Verify the licence.**
   - Open one creator page on youtube.fandom.com in a browser (a single page view, not a scrape) and read the footer licence line.
   - Set `ATTRIBUTION["license"]` to the exact name (e.g. "CC BY-SA 3.0") and add `license_url` (the Creative Commons deed it links to).
   - Record both in NOTES with the URL and date.
-- [ ] **Step 4: Implement.**
+- [x] **Step 4: Implement.**
   - `build_artifacts.py`: add `missing_from_wiki_since` to a details entry only when the record has it.
   - `publish.py`:
     - Implement the interfaces above. CLI defaults: build = `newest_build(data/artifacts/galaxy)`; dist = `web/dist`; home = `web/home`.
@@ -180,8 +180,8 @@ Local mirrors of the same tree:
   - `Makefile`:
     - `web-data: ## copy the newest build's site data into web/.devdata for make web-dev` → `$(PY) pipeline.publish galaxy --data-only --to-dir web/.devdata`.
     - `stage: ## mirror the Hostinger tree into data/stage/public_html` → `$(PY) pipeline.publish all --to-dir data/stage/public_html`.
-- [ ] **Step 5: Run** `uv run pytest -q && uv run ruff check .`. Expected: all pass. Then run `make build && make web-data` and check that `web/.devdata/manifest.json` names the new version.
-- [ ] **Step 6: Commit and push** (`feat(publish): site layout, local staging and licence attribution`).
+- [x] **Step 5: Run** `uv run pytest -q && uv run ruff check .`. Expected: all pass. Then run `make build && make web-data` and check that `web/.devdata/manifest.json` names the new version.
+- [x] **Step 6: Commit and push** (`feat(publish): site layout, local staging and licence attribution`).
 
 ### Task 2: Web data loading
 
@@ -208,16 +208,16 @@ Local mirrors of the same tree:
     - `createLoader(fetchFn, base, version) -> {neighbors(): Promise<Record<string, string[]>>; details(key): Promise<Record<string, Detail>>}`. Both are memoised; a rejected promise is dropped from the cache, so a retry refetches.
   - `config.ts`: `BASE = import.meta.env.BASE_URL`.
 
-- [ ] **Step 1: Write the failing tests** in `web/test/data.test.ts`, using a fake `fetchFn` that serves an in-memory map of URL → JSON and records calls:
+- [x] **Step 1: Write the failing tests** in `web/test/data.test.ts`, using a fake `fetchFn` that serves an in-memory map of URL → JSON and records calls:
   - `paths("/galaxy/", "v1").nodes === "/galaxy/data/v1/nodes.json"`, and `.manifest === "/galaxy/manifest.json"`.
   - `loadManifest` passes `cache: "no-store"`. A 404 rejects with `DataError` whose message contains `manifest.json`.
   - `toGalaxy` with 3 nodes: `pos2` equals `[x0, y0, x1, y1, x2, y2]` as a `Float32Array`; `index.get(id1) === 1`; `cluster` is a `Uint16Array`.
   - `toGalaxy` throws `DataError` when a column has a different length, or when a `cluster` value is ≥ `clusters.length`.
   - `createLoader(...).details("c001")` called twice → one fetch. After a failed first call, a second call fetches again.
-- [ ] **Step 2: Run** `cd web && npm install -D happy-dom && npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement `web/src/data.ts` and `web/src/config.ts`** to the interfaces above.
-- [ ] **Step 4: Run** `npm test && npm run typecheck`. Expected: PASS.
-- [ ] **Step 5: Add the CI web step and commit and push** (`feat(web): data loading`).
+- [x] **Step 2: Run** `cd web && npm install -D happy-dom && npm test`. Expected: FAIL.
+- [x] **Step 3: Implement `web/src/data.ts` and `web/src/config.ts`** to the interfaces above.
+- [x] **Step 4: Run** `npm test && npm run typecheck`. Expected: PASS.
+- [x] **Step 5: Add the CI web step and commit and push** (`feat(web): data loading`).
 
 ### Task 3: The map
 
@@ -242,7 +242,7 @@ Local mirrors of the same tree:
     - `createMap(parent: HTMLElement, g: Galaxy, h: {onHover(i: number | null, x: number, y: number): void; onClick(i: number | null): void}) -> GalaxyMap`.
     - `GalaxyMap` methods: `setMode("2d" | "3d")`, `setFocus(f: Focus | null)`, `setLinks(from: number | null, to: number[])`, `flyTo(i: number)`, `flyToPoint(xy: number[])`, `setPerformance(on: boolean)`, `destroy()`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `hexToRgb("#f10080")` → `[241, 0, 128]`.
   - `fillColours`:
     - no focus → all alpha 255, RGB from each node's cluster colour;
@@ -250,9 +250,9 @@ Local mirrors of the same tree:
     - `keep: [0]` with node 0 in cluster 0 → node 0 is 255;
     - passing `out` reuses that buffer (`===`).
   - `fitView`: bounds (0,0)–(10,10) in 1000×1000 → zoom `log2(90)`, target `[5, 5, 0]`. A 3D box gives a z-centred target.
-- [ ] **Step 2: Run** `npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement `colour.ts` and `view.ts`.** Run `npm test`. Expected: PASS.
-- [ ] **Step 4: Implement `map.ts`** with deck.gl `Deck`:
+- [x] **Step 2: Run** `npm test`. Expected: FAIL.
+- [x] **Step 3: Implement `colour.ts` and `view.ts`.** Run `npm test`. Expected: PASS.
+- [x] **Step 4: Implement `map.ts`** with deck.gl `Deck`:
   - **Points:** one `ScatterplotLayer` over **binary attributes**: `data: {length: n, attributes: {getPosition: {value: pos2|pos3, size: 2|3}, getFillColor: {value: colours, size: 4, normalized: true}}}`.
   - **Sizes:** `radiusUnits: "pixels"`, radius 2.5 (1.5 in performance mode). `pickable: true`, `autoHighlight: true`.
   - **Views:** 2D uses `OrthographicView` (default); 3D uses `OrbitView`. Initial views come from `fitView`.
@@ -260,14 +260,14 @@ Local mirrors of the same tree:
   - **Transitions:** `flyTo` uses a 600 ms view-state transition, or none when `matchMedia("(prefers-reduced-motion: reduce)")` matches or performance mode is on.
   - **Performance mode:** also sets `useDevicePixels: false`.
   - `main.ts`: load manifest → galaxy, mount the map, and show a hover tooltip (title + cluster name, positioned at x/y). Show a full-page message on `DataError` ("The map couldn't load. Try refreshing.").
-- [ ] **Step 5: Check by eye.** Run `make web-data && make web-dev` and open `http://localhost:5173/galaxy/` (use the browser tool if available, otherwise ask the owner). Expected:
+- [x] **Step 5: Check by eye.** Run `make web-data && make web-dev` and open `http://localhost:5173/galaxy/` (use the browser tool if available, otherwise ask the owner). Expected:
   - all ~20.8K coloured points;
   - smooth pan and zoom;
   - 2D↔3D toggle works;
   - hover shows the title.
 
   Record JS bundle size from `npm run build` (raw/gzip) in NOTES.
-- [ ] **Step 6: Commit and push** (`feat(web): deck.gl map with 2D/3D`).
+- [x] **Step 6: Commit and push** (`feat(web): deck.gl map with 2D/3D`).
 
 ### Task 4: Search, legend and shareable links
 
@@ -287,7 +287,7 @@ Local mirrors of the same tree:
     - `mountSearchBox(el, g, search, onPick(i))`: an ARIA combobox. Arrow keys move, Enter picks, Escape closes. Each option shows title + cluster name.
     - `renderLegend(el, clusters, titleOf(id) -> string | undefined, onPick(c: number))`: rows sorted by size descending, each a `<button>` with a colour swatch, name, size and leader title, plus a filter input.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - **search:**
     - `fold("Pokémon  Go!") === "pokemon go"`.
     - `same-title creators both match`: titles `["Target", "TARGET", "Target3DGaming"]`, query "target" → first two results are `{0, 1}` in any order, then 2.
@@ -303,15 +303,15 @@ Local mirrors of the same tree:
     - 3 clusters render as 3 buttons in size order.
     - Typing "mine" in the filter leaves only names containing "mine" (case-insensitive).
     - Clicking a row calls `onPick` with that cluster's **position in `clusters`**, not its rank in the sorted list.
-- [ ] **Step 2: Run** `npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement** the modules and wire them in `main.ts`:
+- [x] **Step 2: Run** `npm test`. Expected: FAIL.
+- [x] **Step 3: Implement** the modules and wire them in `main.ts`:
   - **Picking a creator:** `flyTo`, `setFocus({cluster, keep: neighbours})`, `setLinks`, open the panel (Task 5), and set `#/creator/<id>`.
   - **Picking a cluster:** `flyToPoint` to its `cx2/cy2` (or the 3D centre in 3D mode), `setFocus({cluster})`, and set `#/cluster/<key>`.
   - **Clearing:** a click on empty map or Escape clears focus and the hash.
   - **On load and on `hashchange`:** apply the hash. Unknown ids or keys are ignored silently.
   - **Neighbours:** load in the background after first paint (`requestIdleCallback`, falling back to `setTimeout(…, 500)`).
-- [ ] **Step 4: Run** `npm test && npm run typecheck`. Expected: PASS. Then check by eye that searching "target" shows both, each with its cluster.
-- [ ] **Step 5: Commit and push** (`feat(web): search, legend and shareable links`).
+- [x] **Step 4: Run** `npm test && npm run typecheck`. Expected: PASS. Then check by eye that searching "target" shows both, each with its cluster.
+- [x] **Step 5: Commit and push** (`feat(web): search, legend and shareable links`).
 
 ### Task 5: Detail panel, footer, toggles and layout
 
@@ -327,7 +327,7 @@ Local mirrors of the same tree:
   - `renderFooter(el, m: Manifest)`.
   - `mountToggles(el, s: {mode: "2d" | "3d"; performance: boolean}, onChange)`. Settings persist in `localStorage` key `galaxy.settings`; every read and write is wrapped in try/catch.
 
-- [ ] **Step 1: Write the failing tests** (happy-dom):
+- [x] **Step 1: Write the failing tests** (happy-dom):
   - **Source link:** text "Read on the YouTube Wiki", `href = source_url`, `target="_blank"`, `rel="noopener noreferrer"`.
   - **YouTube link:** present for a non-null `youtube_url`, absent for `null`.
   - **Thumbnail:**
@@ -344,8 +344,8 @@ Local mirrors of the same tree:
     - contains "YouTube Wiki (Fandom)" linking `source_url`, and the licence name linking `license_url`;
     - contains "Last updated 18 Nov 2026" for `built_at: "2026-11-18T17:18:50+00:00"` (format `d MMM yyyy`, `en-GB`, UTC);
     - shows the creator count.
-- [ ] **Step 2: Run** `npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement** the modules and the page layout:
+- [x] **Step 2: Run** `npm test`. Expected: FAIL.
+- [x] **Step 3: Implement** the modules and the page layout:
   - **Layout:**
     - Header: title, search box, toggles.
     - The map fills the viewport.
@@ -357,12 +357,12 @@ Local mirrors of the same tree:
   - **Toggles:**
     - 2D/3D calls `map.setMode`.
     - Performance mode calls `map.setPerformance`, which also stops the neighbour lines.
-- [ ] **Step 4: Run** `npm test && npm run typecheck && npm run build`. Expected: PASS. Then check by eye at 360 px and desktop widths:
+- [x] **Step 4: Run** `npm test && npm run typecheck && npm run build`. Expected: PASS. Then check by eye at 360 px and desktop widths:
   - no horizontal scroll;
   - Tab reaches every control with a visible focus ring;
   - the panel opens and closes;
   - a broken thumbnail falls back to the text card.
-- [ ] **Step 5: Commit and push** (`feat(web): detail panel, attribution footer, toggles`).
+- [x] **Step 5: Commit and push** (`feat(web): detail panel, attribution footer, toggles`).
 
 ### Task 6: Home page, cache rules and preview
 
@@ -379,16 +379,16 @@ Local mirrors of the same tree:
   - `web/public/.htaccess` (copied into `dist` by Vite).
   - `make preview`: `make stage`, then `python3 -m http.server 8080 --bind 0.0.0.0 -d data/stage/public_html`. It prints the LAN URL for a phone check.
 
-- [ ] **Step 1: Verify** in Hostinger and LiteSpeed docs that `.htaccess` `mod_headers` / `mod_expires` / `mod_deflate` directives work on Hostinger shared hosting. Record the URL and date in NOTES. If they don't, keep the file and note what's ignored.
-- [ ] **Step 2: Write the failing tests** in `tests/test_site_files.py`:
+- [x] **Step 1: Verify** in Hostinger and LiteSpeed docs that `.htaccess` `mod_headers` / `mod_expires` / `mod_deflate` directives work on Hostinger shared hosting. Record the URL and date in NOTES. If they don't, keep the file and note what's ignored.
+- [x] **Step 2: Write the failing tests** in `tests/test_site_files.py`:
   - **`test_htaccess_cache_rules`:**
     - `web/public/.htaccess` gives `.js|.css|.json` `max-age=31536000, immutable`;
     - a **later** `<FilesMatch "^(index\.html|manifest\.json)$">` section sets `no-cache` (order matters, so assert the index of one section is greater than the other);
     - gzip/deflate is enabled for json/js/css/html.
   - **`test_home_links_galaxy`:** `web/home/index.html` contains `href="/galaxy/"`, links `home.css`, has a viewport meta, and references no remote scripts.
   - **`test_home_plan_has_no_htaccess_or_dirs`:** `home_files(web/home)` paths contain no `/` and no `.htaccess`.
-- [ ] **Step 3: Run** `uv run pytest tests/test_site_files.py -q`. Expected: FAIL.
-- [ ] **Step 4: Implement the home page** and the `.htaccess`.
+- [x] **Step 3: Run** `uv run pytest tests/test_site_files.py -q`. Expected: FAIL.
+- [x] **Step 4: Implement the home page** and the `.htaccess`.
   - **Home page** (static, same dark palette as the galaxy):
     - heading "SpookyPharaoh";
     - the line "Silly things I build for fun.";
@@ -397,11 +397,11 @@ Local mirrors of the same tree:
 
     The owner may change the copy at the checkpoint.
   - **Makefile:** `web-build: ## build the galaxy site into web/dist` runs `cd web && SITE_BASE_PATH=$${SITE_BASE_PATH:-/galaxy/} npm run build`.
-- [ ] **Step 5: Run** `uv run pytest -q && make web-build && make preview`. Check by eye:
+- [x] **Step 5: Run** `uv run pytest -q && make web-build && make preview`. Check by eye:
   - `http://localhost:8080/` shows the home page;
   - its card opens `/galaxy/`;
   - the map loads from the staged tree.
-- [ ] **Step 6: Commit and push** (`feat(site): home page, cache rules and local preview`).
+- [x] **Step 6: Commit and push** (`feat(site): home page, cache rules and local preview`).
 
 ### Task 7: SFTP publish, preflight, prune and rollback
 
@@ -435,7 +435,7 @@ Local mirrors of the same tree:
     - `rollback VERSION`;
     - galaxy publish sequence: preflight → plan uploads → execute → verify → prune.
 
-- [ ] **Step 1: Write the failing tests** (all with `LocalRemote` or fakes; no paramiko import):
+- [x] **Step 1: Write the failing tests** (all with `LocalRemote` or fakes; no paramiko import):
   - `test_preflight_base_path_mismatch`: `SITE_BASE_PATH=/map/` with `public_html/galaxy` → one error mentioning both.
   - `test_preflight_dist_built_with_wrong_base`: `dist/index.html` referencing `/assets/` → error.
   - `test_preflight_warns_on_placeholder_index`: the remote home dir holds `default.php` → a `warning:` entry.
@@ -444,15 +444,15 @@ Local mirrors of the same tree:
   - `test_rollback_requires_remote_version`: rolling back to a version missing remotely → exits non-zero and uploads nothing. A present version → only `manifest.json` changes, and its `version` equals the target.
   - `test_dry_run_never_prints_secrets`: settings with password `"s3cret-pw"` → captured stdout and stderr do not contain it.
   - `test_verify`: a fake fetch returning `{"version": "v2"}` → `verify(..., "v2")` is True and `"v1"` is False. The request URL has a `t=` query and the generic User-Agent.
-- [ ] **Step 2: Run** `uv run pytest tests/test_publish.py -q`. Expected: FAIL.
-- [ ] **Step 3: Implement** the interfaces above.
+- [x] **Step 2: Run** `uv run pytest tests/test_publish.py -q`. Expected: FAIL.
+- [x] **Step 3: Implement** the interfaces above.
   - **Errors:** a preflight error exits 1 before connecting for uploads (listing the remote dir for warnings is allowed). Warnings print and continue.
   - **Makefile:**
     - `publish-dry: ## show exactly what a publish would upload (connects read-only)` runs `$(PY) pipeline.publish all --dry-run`.
     - `publish: ## upload home + galaxy to Hostinger (manifest last), verify, prune` runs `$(PY) pipeline.publish all`.
     - `rollback: ## point the live site at an older data version: make rollback VERSION=…` runs `$(PY) pipeline.publish rollback $(VERSION)`.
-- [ ] **Step 4: Run** `uv run pytest -q && uv run ruff check .`. Expected: PASS.
-- [ ] **Step 5: Write `docs/DEPLOY.md` (Hostinger part only; Cloudflare comes in Plan 4):**
+- [x] **Step 4: Run** `uv run pytest -q && uv run ruff check .`. Expected: PASS.
+- [x] **Step 5: Write `docs/DEPLOY.md` (Hostinger part only; Cloudflare comes in Plan 4):**
   - **Credentials:** where to find SFTP host, port and user in hPanel (verify against Hostinger's help page and record the URL), and enabling SSH/SFTP access.
   - **Host key:** accepting it once with `ssh -p <port> <user>@<host>`.
   - **`.env` values.**
@@ -461,11 +461,11 @@ Local mirrors of the same tree:
   - **Rollback:** `make rollback VERSION=…`.
   - **Placeholder page:** removing Hostinger's default page if preflight warns about it (the owner does this by hand in hPanel's file manager).
   - **Files to delete:** this lists local leftovers in `docs/TO_DELETE.md`.
-- [ ] **Step 6: Commit and push** (`feat(publish): SFTP upload, preflight, prune, rollback, DEPLOY.md`).
+- [x] **Step 6: Commit and push** (`feat(publish): SFTP upload, preflight, prune, rollback, DEPLOY.md`).
 
 ### Task 8: 🛑 Checkpoint 3a — review and first publish (map only)
 
-- [ ] **Step 1: Fresh build.** Run `make pipeline FORCE=1 && make web-build && make stage`. Record the version, site upload size and JS bundle size.
+- [x] **Step 1: Fresh build.** Run `make pipeline FORCE=1 && make web-build && make stage`. Record the version, site upload size and JS bundle size.
 - [ ] **Step 2: Owner reviews locally** with `make preview`, on a laptop and on a phone over the LAN URL. Checklist to send:
   - map colours and readability;
   - 2D/3D;
