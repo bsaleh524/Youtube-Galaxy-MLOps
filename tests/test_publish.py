@@ -4,13 +4,18 @@ from pathlib import Path
 import pytest
 
 from pipeline import publish
+from pipeline.config import Settings
 from pipeline.publish import (
     LocalRemote,
     execute,
     galaxy_files,
     home_files,
+    live_version,
     newest_build,
     plan_uploads,
+    preflight,
+    prune_plan,
+    verify,
 )
 
 V = "20261118-000000-abcdef12"
@@ -155,3 +160,157 @@ def test_dry_run_writes_nothing(tmp_path, build_dir, dist_dir, monkeypatch, caps
     assert publish.main(["galaxy", "--data-only", "--to-dir", str(out), "--dry-run"]) == 0
     assert not out.exists() or not any(out.rglob("*"))
     assert "manifest.json" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------- Task 7: preflight, prune, rollback, verify
+
+
+def _settings(**kw) -> Settings:
+    return Settings(**kw)
+
+
+def test_preflight_ok(build_dir, dist_dir, tmp_path):
+    assert preflight(_settings(), build_dir, dist_dir, LocalRemote(tmp_path / "remote")) == []
+
+
+def test_preflight_base_path_mismatch(build_dir, dist_dir, tmp_path):
+    errs = preflight(_settings(site_base_path="/map/"), build_dir, dist_dir, LocalRemote(tmp_path / "r"))
+    assert any("/map/" in e and "public_html/galaxy" in e for e in errs)
+
+
+def test_preflight_dist_built_with_wrong_base(build_dir, dist_dir, tmp_path):
+    (dist_dir / "index.html").write_text('<script src="/assets/app-1a2b.js"></script>')
+    errs = preflight(_settings(), build_dir, dist_dir, LocalRemote(tmp_path / "r"))
+    assert any("make web-build" in e for e in errs)
+
+
+def test_preflight_home_dir_must_be_parent(build_dir, dist_dir, tmp_path):
+    errs = preflight(_settings(hostinger_home_dir="www"), build_dir, dist_dir, LocalRemote(tmp_path / "r"))
+    assert any("HOSTINGER_HOME_DIR" in e for e in errs)
+
+
+def test_preflight_missing_build_file(build_dir, dist_dir, tmp_path):
+    m = json.loads((build_dir / "manifest.json").read_text())
+    m["files"] = {"nodes.json": 1, "gone.json": 1, "worker/index.bin": 1}
+    (build_dir / "manifest.json").write_text(json.dumps(m))
+    errs = preflight(_settings(), build_dir, dist_dir, LocalRemote(tmp_path / "r"))
+    assert len(errs) == 1 and "gone.json" in errs[0]
+
+
+def test_preflight_warns_on_placeholder_index(build_dir, dist_dir, tmp_path):
+    _write(tmp_path / "r" / "public_html" / "default.php", "<?php")
+    errs = preflight(_settings(), build_dir, dist_dir, LocalRemote(tmp_path / "r"))
+    assert len(errs) == 1 and errs[0].startswith("warning: ") and "default.php" in errs[0]
+
+
+def test_home_plan_touches_only_own_files(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    _write(home / "index.html", "new home")
+    _write(home / "home.css", "css")
+    remote_root = tmp_path / "r"
+    others = {"galaxy/manifest.json": "{}", "music/x.html": "music", ".htaccess": "root rules"}
+    for rel, text in others.items():
+        _write(remote_root / rel, text)
+    before = {p.relative_to(remote_root).as_posix(): p.read_bytes() for p in remote_root.rglob("*") if p.is_file()}
+    remote = LocalRemote(remote_root)
+    execute(plan_uploads(home_files(home), remote, "", publish.ALWAYS_HOME), remote, log=lambda s: None)
+    after = {p.relative_to(remote_root).as_posix(): p.read_bytes() for p in remote_root.rglob("*") if p.is_file()}
+    changed = {k for k in after if before.get(k) != after[k]}
+    assert changed == {"index.html", "home.css"}
+    assert all(after[k] == before[k] for k in others)
+
+
+def test_prune_keeps_three_and_live(tmp_path):
+    root = tmp_path / "r"
+    for v in ["v1", "v2", "v3", "v4", "v5"]:
+        _write(root / "galaxy" / "data" / v / "nodes.json", "{}")
+    acts = prune_plan(LocalRemote(root), "galaxy", "v1", keep=3)
+    assert [(a.op, a.path) for a in acts] == [("rmtree", "galaxy/data/v2")]
+
+
+def test_prune_nothing_when_few(tmp_path):
+    root = tmp_path / "r"
+    for v in ["v1", "v2"]:
+        _write(root / "data" / v / "nodes.json", "{}")
+    assert prune_plan(LocalRemote(root), "", "v2") == []
+
+
+def test_live_version(tmp_path):
+    root = tmp_path / "r"
+    remote = LocalRemote(root)
+    assert live_version(remote, "galaxy") is None
+    _write(root / "galaxy" / "manifest.json", json.dumps({"version": "v7"}))
+    assert live_version(remote, "galaxy") == "v7"
+
+
+def _remote_with_versions(tmp_path, versions, live):
+    root = tmp_path / "remote"
+    for v in versions:
+        _write(root / "data" / v / "nodes.json", "{}")
+    _write(root / "manifest.json", json.dumps({"version": live}))
+    return root
+
+
+def test_rollback_requires_remote_version(tmp_path, build_dir, monkeypatch, capsys):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    root = _remote_with_versions(tmp_path, ["v2"], "v2")
+    before = (root / "manifest.json").read_bytes()
+    assert publish.main(["rollback", V, "--to-dir", str(root)]) == 1
+    assert (root / "manifest.json").read_bytes() == before
+    assert "not on the server" in capsys.readouterr().err
+
+
+def test_rollback_switches_manifest_only(tmp_path, build_dir, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    root = _remote_with_versions(tmp_path, [V, "v9"], "v9")
+    files_before = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+    assert publish.main(["rollback", V, "--to-dir", str(root)]) == 0
+    assert json.loads((root / "manifest.json").read_text())["version"] == V
+    assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()) == files_before
+
+
+def test_dry_run_never_prints_secrets(tmp_path, build_dir, dist_dir, monkeypatch, capsys):
+    monkeypatch.setattr(publish, "DIST_DIR", dist_dir)
+    home = tmp_path / "home"
+    _write(home / "index.html", "home")
+    monkeypatch.setattr(publish, "HOME_DIR", home)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    for k, v in {"HOSTINGER_SFTP_HOST": "sftp.example", "HOSTINGER_SFTP_PORT": "65002",
+                 "HOSTINGER_SFTP_USER": "u123", "HOSTINGER_SFTP_PASSWORD": "s3cret-pw"}.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setattr(publish, "SftpRemote", lambda settings: LocalRemote(tmp_path / "fake-sftp"))
+    assert publish.main(["all", "--dry-run"]) == 0
+    out = capsys.readouterr()
+    assert "s3cret-pw" not in out.out + out.err
+    assert "public_html/galaxy/manifest.json" in out.out
+    assert not (tmp_path / "fake-sftp").exists()
+
+
+def test_sftp_publish_needs_credentials(tmp_path, build_dir, dist_dir, monkeypatch, capsys):
+    monkeypatch.setattr(publish, "DIST_DIR", dist_dir)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    for k in ["HOSTINGER_SFTP_HOST", "HOSTINGER_SFTP_USER", "HOSTINGER_SFTP_PASSWORD", "HOSTINGER_SFTP_KEY_PATH"]:
+        monkeypatch.setenv(k, "")
+    with pytest.raises(SystemExit, match="HOSTINGER_SFTP_HOST"):
+        publish.main(["galaxy"])
+
+
+def test_verify():
+    seen = []
+
+    def fake(url, headers):
+        seen.append((url, headers))
+        return json.dumps({"version": "v2"}).encode()
+
+    url = "https://spookypharaoh.com/galaxy/manifest.json"
+    assert verify(url, "v2", fetch=fake) is True
+    assert verify(url, "v1", fetch=fake) is False
+    assert seen[0][0].startswith(url + "?t=")
+    assert seen[0][1]["User-Agent"] == "galaxy-publish/1.0"
+
+
+def test_verify_network_error_is_false():
+    def boom(url, headers):
+        raise OSError("down")
+
+    assert verify("https://x.example/manifest.json", "v1", fetch=boom) is False

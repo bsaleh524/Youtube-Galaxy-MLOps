@@ -1,9 +1,9 @@
 # YouTube Galaxy — local commands. See README.md.
-# Still to come in later plans: eval, gate, publish, rollback (and a scraper/importer, issue #4).
+# Still to come in later plans: Worker deploy, eval, gate (and a scraper/importer, issue #4).
 
 .PHONY: help setup mlflow airflow web-dev web-build worker-dev worker-deploy test clean \
 	seed embed cluster recluster compare-k build pipeline \
-	web-data stage preview
+	web-data stage preview publish-dry publish rollback
 
 PY := uv run python -m
 .DEFAULT_GOAL := help
@@ -42,9 +42,21 @@ web-data:    ## copy the newest build's site data into web/.devdata for make web
 stage:       ## mirror the Hostinger tree into data/stage/public_html (needs make web-build)
 	$(PY) pipeline.publish all --to-dir data/stage/public_html
 
-preview: stage ## serve the staged tree on port 8080 (also reachable from a phone on the same wifi)
+preview:     ## stage, then serve the tree on :8080 (also reachable from a phone on the same wifi)
+	$(MAKE) stage
 	@echo "Open http://localhost:8080/  (phone: http://$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1):8080/)"
 	python3 -m http.server 8080 --bind 0.0.0.0 -d data/stage/public_html
+
+# --- Publish to Hostinger (docs/DEPLOY.md). Never part of `make pipeline`. ---
+
+publish-dry: ## show exactly what a publish would upload (connects read-only)
+	$(PY) pipeline.publish all --dry-run
+
+publish:     ## upload home + galaxy to Hostinger (manifest last), verify, prune
+	$(PY) pipeline.publish all
+
+rollback:    ## point the live site at an older data version: make rollback VERSION=...
+	$(PY) pipeline.publish rollback $(VERSION)
 
 setup:
 	uv sync

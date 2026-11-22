@@ -158,9 +158,15 @@ make compare-k        # compare cluster counts (KS=60,120,200) without touching 
 make build            # write data/artifacts/galaxy/<version>/
 make pipeline         # embed → cluster (assign) → build; skips if nothing changed (FORCE=1)
 make eval             # run the retrieval eval alone (planned)
-make web-dev          # local map with hot reload
+make web-data         # copy the newest build's data into web/.devdata (needed by web-dev)
+make web-dev          # local map with hot reload at http://localhost:5173/galaxy/
+make web-build        # build the site into web/dist
+make preview          # stage the exact Hostinger tree and serve it on :8080 (phone-friendly)
+make publish-dry      # show what a publish would upload (connects read-only)
+make publish          # upload home page + map to Hostinger (manifest last), verify, prune; see docs/DEPLOY.md
+make rollback VERSION=<version>  # point the live map at an older data version
 make worker-dev       # local Worker via wrangler
-make publish          # gated publish: SFTP + wrangler deploy (planned)
+make publish-chat     # Worker deploy + chat widget (planned, Plan 4); the eval gate comes later
 ```
 
 The first run can reuse the 20,807-creator dataset already scraped in the sibling repo (`Controversy-Early-Warning-System/data/fandom/`). No re-crawl is needed to get started.
