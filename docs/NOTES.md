@@ -244,3 +244,9 @@ Owner picked k=120 for now. The goal is many *niche* clusters that each make sen
 - deck.gl `@deck.gl/core` + `@deck.gl/layers` 9.4.1 (npm, 2026-11-22). One `ScatterplotLayer` over binary attributes (Float32 positions, Uint8 RGBA colours); `OrthographicView` for 2D, `OrbitView` for 3D (starts 0.6 zoom levels further out than a flat fit, because the camera is perspective and rotated).
 - Production JS after Task 3: ~782 KB raw / ~234 KB gzip across chunks (main chunk 618 KB / 174 KB).
 - Visual checks use headless Chrome (SwiftShader WebGL) driven over the DevTools protocol from a scratch script; 20.8K points render in 2D and 3D.
+
+## 2026-11-22 — Plan 3 Task 6: home page, cache rules, preview
+
+- **`.htaccess` on Hostinger:** Hostinger runs LiteSpeed, which reads `.htaccess` ("drop-in replacement for Apache with .htaccess file support", https://www.hostinger.com/blog/?p=1201, checked 2026-11-22). Hostinger documents setting Cache-Control in `.htaccess` (https://www.hostinger.com/support/?p=649). Agency plans need `.htaccess` switched on first (https://www.hostinger.com/support/how-to-enable-htaccess-on-agency-plans/); Premium is not affected. Not found in docs: whether `mod_deflate` directives are honoured (LiteSpeed usually compresses static files itself). **Check the live headers with `curl -sI` after the first publish.**
+- `web/public/.htaccess` (copied into `dist` by Vite, including the dot-file): a year's `immutable` cache for js/css/json/images, then `no-cache` for `index.html` and `manifest.json` (later section wins), DEFLATE for text types, no directory listings. It only governs `public_html/galaxy/`; the home publish never writes a root `.htaccess`.
+- Home page: static `web/home/index.html` + `home.css`, no build step. `make preview` serves the staged tree at http://localhost:8080/ and prints the LAN address for a phone.

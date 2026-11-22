@@ -3,7 +3,7 @@
 
 .PHONY: help setup mlflow airflow web-dev web-build worker-dev worker-deploy test clean \
 	seed embed cluster recluster compare-k build pipeline \
-	web-data stage
+	web-data stage preview
 
 PY := uv run python -m
 .DEFAULT_GOAL := help
@@ -42,6 +42,10 @@ web-data:    ## copy the newest build's site data into web/.devdata for make web
 stage:       ## mirror the Hostinger tree into data/stage/public_html (needs make web-build)
 	$(PY) pipeline.publish all --to-dir data/stage/public_html
 
+preview: stage ## serve the staged tree on port 8080 (also reachable from a phone on the same wifi)
+	@echo "Open http://localhost:8080/  (phone: http://$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1):8080/)"
+	python3 -m http.server 8080 --bind 0.0.0.0 -d data/stage/public_html
+
 setup:
 	uv sync
 	cd web && npm install
@@ -57,8 +61,8 @@ airflow:
 web-dev:
 	cd web && npm run dev
 
-web-build:
-	cd web && npm run build
+web-build:   ## build the galaxy site into web/dist (SITE_BASE_PATH, default /galaxy/)
+	cd web && SITE_BASE_PATH=$${SITE_BASE_PATH:-/galaxy/} npm run build
 
 worker-dev:
 	cd worker && npm run dev
