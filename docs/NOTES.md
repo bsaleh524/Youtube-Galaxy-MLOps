@@ -304,3 +304,8 @@ What it shows:
 - `make sanity` on live: lookalike 2.53 % (was 14.18 %), silhouette 0.0289.
 - Local preview checked: the map keeps its galaxy shape; Marques Brownlee sits in the tech cluster with 10 tech neighbours (Dave2D, Soldier Knows Best, Tekify…).
 - Not published yet; waiting for the owner's go.
+
+## Issue #5 published (2026-11-23)
+
+- `make publish` (owner's go): build `20261123-132733-640c47c5`, galaxy uploaded 126 / unchanged 6, live check passed, home 2 files, 52 s. Live manifest reports the new version and silhouette 0.0289; Kurzgesagt's panel shows "Science & History Education".
+- Write-ups: `docs/EMBEDDINGS.md` (method, experiments, scoring) and `docs/NAMING_CLUSTERS.md` (owner's guide to naming the 55 placeholders).

@@ -172,6 +172,8 @@ make publish-chat     # Worker deploy + chat widget (planned, Plan 4); the eval 
 
 The first run can reuse the 20,807-creator dataset already scraped in the sibling repo (`Controversy-Early-Warning-System/data/fandom/`). No re-crawl is needed to get started.
 
+How creators are embedded and how each version scored: [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md). Naming clusters by hand: [docs/NAMING_CLUSTERS.md](docs/NAMING_CLUSTERS.md).
+
 ## Risks and things to verify early
 
 These are the assumptions the design leans on. **Phase 1 of the implementation prompt exists to test them before anything else is built.**
