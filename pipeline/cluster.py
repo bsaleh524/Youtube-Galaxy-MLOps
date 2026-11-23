@@ -259,13 +259,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     run_dir.mkdir(parents=True, exist_ok=True)
     from pipeline.snapshot import load_current
-    from pipeline.textprep import embed_text
+    from pipeline.textprep import keyword_text, protected_words
 
-    records = {r["id"]: r for r in load_current(settings.data_dir / "raw")[0]}
+    all_records = load_current(settings.data_dir / "raw")[0]
+    records = {r["id"]: r for r in all_records}
     missing = [rid for rid in ids if rid not in records]
     if missing:
         ap.error(f"{len(missing)} embedded ids are not in the current snapshot (e.g. {missing[0]}); run embed first")
-    texts = [embed_text(records[rid], rows["max_chars"])[0] for rid in ids]
+    protected = protected_words(all_records)
+    texts = [keyword_text(records[rid], protected, rows["max_chars"]) for rid in ids]
     seed_names = _read_json(settings.data_dir / "seed" / "seed_cluster_names.json")
     owner_names = _read_json(settings.data_dir / "cluster_names.json")
     report["naming"] = name_model(model, X, texts, prev, seed_names, owner_names)

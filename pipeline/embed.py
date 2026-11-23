@@ -24,7 +24,7 @@ import numpy as np
 
 from pipeline.config import load_settings
 from pipeline.snapshot import load_current
-from pipeline.textprep import DEFAULT_MAX_CHARS, embed_text, text_hash
+from pipeline.textprep import DEFAULT_MAX_CHARS, embed_chunks, protected_words, text_hash
 
 NORM_TOLERANCE = 1e-3
 
@@ -81,10 +81,11 @@ def run(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     texts, hashes, truncated = {}, {}, 0
+    protected = protected_words(records)
     for r in records:
-        text, cut = embed_text(r, max_chars)
-        texts[r["id"]] = text
-        hashes[r["id"]] = text_hash(text, model_name)
+        chunks, cut = embed_chunks(r, protected, max_chars, 1)
+        texts[r["id"]] = chunks[0]
+        hashes[r["id"]] = text_hash(chunks, model_name)
         truncated += cut
 
     X_prev, prev = _previous(out_dir)

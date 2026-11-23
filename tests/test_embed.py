@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from pipeline.embed import load_embeddings, plan, run
-from pipeline.textprep import embed_text, text_hash
 
 FIXTURE = Path(__file__).parent / "fixtures" / "creators_small.json"
 MODEL = "test-model"
@@ -32,36 +31,6 @@ class FakeEncoder:
             v = rng.normal(size=self.dim)
             out.append(v / np.linalg.norm(v))
         return np.asarray(out, dtype=np.float32)
-
-
-# --- textprep ---------------------------------------------------------------------------------
-
-
-def test_embed_text_joins_title_and_description():
-    text, cut = embed_text({"title": "A", "description": "b c"}, max_chars=100)
-    assert (text, cut) == ("A - b c", False)
-
-
-def test_truncation_keeps_words_whole():
-    rec = {"title": "T", "description": "alpha beta gamma delta"}
-    text, cut = embed_text(rec, max_chars=14)  # "T - alpha beta" is 14 chars exactly
-    assert (text, cut) == ("T - alpha beta", True)
-    text, cut = embed_text(rec, max_chars=16)  # would split "gamma"; back off to a word boundary
-    assert (text, cut) == ("T - alpha beta", True)
-
-
-def test_truncation_hard_cut_when_no_space():
-    text, cut = embed_text({"title": "X", "description": "a" * 50}, max_chars=10)
-    assert len(text) == 10 and cut
-
-
-def test_none_description_is_empty():
-    assert embed_text({"title": "T", "description": None}, max_chars=50) == ("T - ", False)
-
-
-def test_text_hash_depends_on_model():
-    assert text_hash("x", "m1") != text_hash("x", "m2")
-    assert text_hash("x", "m1") == text_hash("x", "m1")
 
 
 # --- plan -------------------------------------------------------------------------------------

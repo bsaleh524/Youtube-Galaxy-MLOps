@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     from pipeline.config import load_settings
     from pipeline.embed import load_embeddings
     from pipeline.snapshot import load_current
-    from pipeline.textprep import embed_text
+    from pipeline.textprep import keyword_text, protected_words
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ks", default="60,120,200")
@@ -114,8 +114,10 @@ def main(argv: list[str] | None = None) -> int:
     ks = [int(x) for x in a.ks.split(",")]
 
     X, ids, rows = load_embeddings(settings.data_dir / "embeddings")
-    records = {r["id"]: r for r in load_current(settings.data_dir / "raw")[0]}
-    texts = [embed_text(records[rid], rows["max_chars"])[0] for rid in ids]
+    all_records = load_current(settings.data_dir / "raw")[0]
+    records = {r["id"]: r for r in all_records}
+    protected = protected_words(all_records)
+    texts = [keyword_text(records[rid], protected, rows["max_chars"]) for rid in ids]
     seed_file = settings.data_dir / "seed" / "seed_cluster_names.json"
     seed_names = json.loads(seed_file.read_text(encoding="utf-8")) if seed_file.exists() else {}
     run_dir = settings.data_dir / "runs" / a.run_id
