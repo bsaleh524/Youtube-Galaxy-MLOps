@@ -291,3 +291,7 @@ What it shows:
 - Removing names is the big win: lookalike neighbours drop from 24× chance to about 4×, and clusters separate 2.4× better.
 - Averaging whole pages adds a different signal. Long pages of famous creators share generic material (subscriber milestones, controversies, collaborations), so big creators end up next to other big creators. That's good for friend groups and rivalries (PewDiePie ↔ T-Series), bad for topics (Linus and MKBHD next to gamers).
 - Neither reaches the ≥ 12 ✓ target. Per the plan, stopped for the owner before adopting.
+
+**Follow-up, owner's choice (option 1):** a blend, 0.5 × first chunk + 0.5 × mean of the rest (`--first-weight 0.5`, 3 min 59 s). Lookalike 2.39 %, silhouette **0.0188** (worst of the three), checks about 4 ✓ / 6 ◐ / 5 ✗: Linus, MKBHD, Vsauce and James Charles all next to the wrong kind of channel. Even half the weight on the rest of the page pulls topics towards "famous YouTuber".
+
+**Decision:** ship fix 1 (cleaned first chunk). `DEFAULT_MAX_CHUNKS` is now 1; `--max-chunks` and `--first-weight` stay for later experiments.

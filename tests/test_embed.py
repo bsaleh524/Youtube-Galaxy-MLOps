@@ -184,3 +184,11 @@ def test_changing_first_weight_reencodes(tmp_path):
     run(FakeEncoder(), [dict(LONG)], tmp_path, MODEL, max_chunks=8)
     stats = run(FakeEncoder(), [dict(LONG)], tmp_path, MODEL, max_chunks=8, first_weight=0.5)
     assert stats["encoded"] == 1
+
+
+def test_embed_defaults_to_first_chunk_only():
+    # Issue #5 experiments (docs/NOTES.md, 2026-11-23): averaging whole pages pulled famous creators
+    # together regardless of topic, so the shipped default is the cleaned first chunk (fix 1).
+    import inspect
+
+    assert inspect.signature(run).parameters["max_chunks"].default == 1

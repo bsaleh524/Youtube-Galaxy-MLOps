@@ -13,7 +13,7 @@ import re
 from collections import Counter
 
 DEFAULT_MAX_CHARS = 2000  # ~400-500 tokens; bge-small truncates at 512 tokens anyway
-DEFAULT_MAX_CHUNKS = 8  # 16K chars; only ~500 of 20.8K bios are longer
+DEFAULT_MAX_CHUNKS = 1  # issue #5: averaging whole pages lost topics (docs/NOTES.md 2026-11-23); 8 = whole page
 PROTECT_DF = 0.05  # words in >= 5% of bios are topics (Minecraft, Roblox, American), never names
 LEAD_WINDOW = 400  # the "Name (born …), better known as X," lead ends at the first verb in here
 TEXT_PREP = "v2-clean-chunks"
