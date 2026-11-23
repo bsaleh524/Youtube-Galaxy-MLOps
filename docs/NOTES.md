@@ -263,3 +263,11 @@ Owner picked k=120 for now. The goal is many *niche* clusters that each make sen
 - **Licence confirmed by the owner** from https://www.fandom.com/licensing: "the text on Fandom communities … is licensed under the Creative Commons Attribution-Share Alike License 3.0 (Unported) (CC BY-SA)". Attribution is now `CC BY-SA 3.0` → https://creativecommons.org/licenses/by-sa/3.0/. Build `20261123-022138-c390a7b8`.
 - **Bug found and fixed:** tests read the developer's real `.env` (blank env values fall back to the file), so one publish test reached the SFTP connect step with real Hostinger settings. `pipeline.config.ENV_FILE` is now patched to `None` by an autouse fixture in `tests/conftest.py`; `tests/test_env_isolation.py` pins it.
 - Publish now refuses a `HOSTINGER_SFTP_KEY_PATH` that doesn't exist (it would otherwise be used instead of the password and fail obscurely).
+
+## 2026-11-23 — First publish (Checkpoint 3a): map live
+
+- Owner reviewed locally, set up SFTP (web root `domains/spookypharaoh.com/public_html`, so `HOSTINGER_HOME_DIR` / `HOSTINGER_REMOTE_DIR` use that prefix), approved the dry run (134 files, empty `public_html`, no placeholder page), then said go.
+- `make publish`: 57 s, 132 galaxy files, live check passed, then 2 home files. Live: https://spookypharaoh.com/ and https://spookypharaoh.com/galaxy/ (build `20261123-022138-c390a7b8`).
+- **Headers (curl, 2026-11-23):** Hostinger serves through its CDN (`server: hcdn`) with brotli for html/json/js. `.htaccess` is honoured: `cache-control: no-cache` on `galaxy/` (index.html) and `manifest.json`; `public, max-age=31536000, immutable` on `data/<version>/…` and `assets/…`. The home page has no cache header (none set; fine).
+- The CDN shows headless browsers a "Checking your browser" page for a few seconds; a real browser and plain HTTP requests (the publish live check) get through. Next publish: confirm the CDN serves the new `manifest.json` straight away (no-cache should make it revalidate).
+- The site is reachable but not announced; fix issue #5 (names dominate the embeddings) before sharing it, per the owner's Checkpoint 2 decision.

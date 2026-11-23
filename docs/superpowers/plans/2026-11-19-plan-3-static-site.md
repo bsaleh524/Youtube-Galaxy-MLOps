@@ -466,7 +466,7 @@ Local mirrors of the same tree:
 ### Task 8: 🛑 Checkpoint 3a — review and first publish (map only)
 
 - [x] **Step 1: Fresh build.** Run `make pipeline FORCE=1 && make web-build && make stage`. Record the version, site upload size and JS bundle size.
-- [ ] **Step 2: Owner reviews locally** with `make preview`, on a laptop and on a phone over the LAN URL. Checklist to send:
+- [x] **Step 2: Owner reviews locally** with `make preview`, on a laptop and on a phone over the LAN URL. Checklist to send:
   - map colours and readability;
   - 2D/3D;
   - search ("target", "markiplier");
@@ -478,13 +478,13 @@ Local mirrors of the same tree:
   - home page copy.
 
   Fix what they flag (one commit per fix) before going on.
-- [ ] **Step 3: Owner fills in `.env`** with the Hostinger values and accepts the host key, following `docs/DEPLOY.md`. Claude cannot do this step.
-- [ ] **Step 4: Run** `make publish-dry`. Show the owner the full action list and any preflight warnings (e.g. Hostinger's `default.php`).
-- [ ] **Step 5: Real upload only on the owner's explicit "go".**
+- [x] **Step 3: Owner fills in `.env`** with the Hostinger values and accepts the host key, following `docs/DEPLOY.md`. Claude cannot do this step.
+- [x] **Step 4: Run** `make publish-dry`. Show the owner the full action list and any preflight warnings (e.g. Hostinger's `default.php`).
+- [x] **Step 5: Real upload only on the owner's explicit "go".**
   - Run `make publish`.
   - Confirm that `https://spookypharaoh.com/` and `https://spookypharaoh.com/galaxy/` load, and that `manifest.json` reports the new version.
   - Record the result in NOTES.
-- [ ] **Step 6: Report** in plain language:
+- [x] **Step 6: Report** in plain language:
   - what is live;
   - sizes and first-load size;
   - anything that differed from this plan;
