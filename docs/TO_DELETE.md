@@ -24,6 +24,10 @@ When you delete something, remove its row (or move it to *Done*) and commit.
 | `data/artifacts/galaxy/20261122-160428-c390a7b8/` | 40 MB | 2026-11-23 | Never published; superseded by `20261123-022138-c390a7b8` (same data, licence now "CC BY-SA 3.0"). |
 | `data/runs/20261118-fit-k120/` | 0.4 MB | 2026-11-18 | First k=120 fit report; the fresh fit `data/runs/20261118-171713/` has identical names and packs. |
 | `data/runs/20261118-assign-check/`, `data/runs/20261118-171835/` | <0.1 MB | 2026-11-18 | One-off weekly-mode check reports. |
+| `data/experiments/issue5/fix12/`, `data/experiments/issue5/blend50/` | 64 MB | 2026-11-23 | Issue #5 experiment variants that lost to fix 1. Scores kept in the `.md` files next to them and in NOTES. |
+| `data/experiments/issue5/fix1/` | 32 MB | 2026-11-23 | Byte-identical to the live `data/embeddings/` (fix 1 was adopted). |
+| `data/experiments/issue5/baseline_model/` | 233 MB | 2026-11-23 | Identical copy of `data/model/galaxy.prev/` (the pre-issue-5 model). |
+| `data/experiments/issue5/baseline_embeddings/` | 32 MB | 2026-11-23 | Pre-issue-5 embeddings. Only needed to go back to the old map; safe once you're happy with the new one. |
 | `data/spike/` | 11 MB | 2026-11-18 | Synthetic spike index from Plan 1. Optional: regenerate any time with `uv run python -m pipeline.synthetic --out data/spike` (useful for issue #1 CPU tests). |
 
 One command for all of the above except the optional `data/spike/`:
@@ -32,10 +36,12 @@ One command for all of the above except the optional `data/spike/`:
 rm -rf data/_before_plan2_run data/raw/snapshots/20261118-041529 data/raw/snapshots/20261118-171358 \
   data/artifacts/galaxy/20261118-155920-c390a7b8 data/artifacts/galaxy/20261118-171817-c390a7b8 \
   data/artifacts/galaxy/20261118-171847-c390a7b8 data/artifacts/galaxy/20261122-160428-c390a7b8 \
-  data/runs/20261118-fit-k120 data/runs/20261118-assign-check data/runs/20261118-171835
+  data/runs/20261118-fit-k120 data/runs/20261118-assign-check data/runs/20261118-171835 \
+  data/experiments/issue5/fix12 data/experiments/issue5/blend50 data/experiments/issue5/fix1 \
+  data/experiments/issue5/baseline_model data/experiments/issue5/baseline_embeddings
 ```
 
-Frees about 760 MB.
+Frees about 1.1 GB.
 
 ## Done
 

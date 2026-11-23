@@ -295,3 +295,12 @@ What it shows:
 **Follow-up, owner's choice (option 1):** a blend, 0.5 × first chunk + 0.5 × mean of the rest (`--first-weight 0.5`, 3 min 59 s). Lookalike 2.39 %, silhouette **0.0188** (worst of the three), checks about 4 ✓ / 6 ◐ / 5 ✗: Linus, MKBHD, Vsauce and James Charles all next to the wrong kind of channel. Even half the weight on the rest of the page pulls topics towards "famous YouTuber".
 
 **Decision:** ship fix 1 (cleaned first chunk). `DEFAULT_MAX_CHUNKS` is now 1; `--max-chunks` and `--first-weight` stay for later experiments.
+
+## Issue #5 adopted locally (2026-11-23, checkpoint 3b)
+
+- `make embed` (fix 1, 2 min 38 s) gave embeddings byte-identical to the fix1 experiment; a second run reused all 20,807.
+- `make recluster K=120 FRESH=1`: silhouette **0.0289** (was 0.0120), sizes 18 / 166 / 385, one cluster under 20. Names bootstrapped fresh from the Gemini seed labels: **65 named, 55 placeholders** (was 71 / 49; the old labels were made on the old clusters, so fewer match). Placeholders are now topics ("tech · technology · educational", "speedrun · speedruns · speedrunning"); the name-based ones ("alex · alexander · alexandra", "jack · english · james") are gone. Several mention "blade · social" (bios quoting Social Blade stats); two share the name "blade · social · time".
+- Build `20261123-132733-640c47c5`: site 21.5 MB (6.0 MB gzip), Worker bundle 19.8 MB (under the 20 MB line).
+- `make sanity` on live: lookalike 2.53 % (was 14.18 %), silhouette 0.0289.
+- Local preview checked: the map keeps its galaxy shape; Marques Brownlee sits in the tech cluster with 10 tech neighbours (Dave2D, Soldier Knows Best, Tekify…).
+- Not published yet; waiting for the owner's go.
