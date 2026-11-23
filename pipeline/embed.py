@@ -84,6 +84,7 @@ def run(
     model_name: str,
     max_chars: int = DEFAULT_MAX_CHARS,
     max_chunks: int = DEFAULT_MAX_CHUNKS,
+    first_weight: float | None = None,
     snapshot_sha256: str | None = None,
     batch_size: int = 256,
 ) -> dict:
@@ -91,10 +92,12 @@ def run(
     out_dir.mkdir(parents=True, exist_ok=True)
     texts, hashes, truncated = {}, {}, 0
     protected = protected_words(records)
+    # The cache key covers the weighting too, so changing it re-encodes multi-chunk creators.
+    hash_key = model_name if first_weight is None else f"{model_name}\0first_weight={first_weight}"
     for r in records:
         chunks, cut = embed_chunks(r, protected, max_chars, max_chunks)
         texts[r["id"]] = chunks
-        hashes[r["id"]] = text_hash(chunks, model_name)
+        hashes[r["id"]] = text_hash(chunks, hash_key)
         truncated += cut
 
     X_prev, prev = _previous(out_dir)
@@ -103,7 +106,7 @@ def run(
     t0 = time.perf_counter()
     # Encode every chunk of every creator to do in flat batches, then average each creator's chunks.
     flat = [(rid, chunk) for rid in todo for chunk in texts[rid]]
-    sums: dict[str, np.ndarray] = {}
+    parts: dict[str, list[np.ndarray]] = {}
     for start in range(0, len(flat), batch_size):
         batch = flat[start : start + batch_size]
         V = np.asarray(encoder.encode([chunk for _, chunk in batch]), dtype=np.float32)
@@ -111,8 +114,8 @@ def run(
         if not np.all(np.abs(norms - 1) < NORM_TOLERANCE):
             raise ValueError("encoder output is not normalised")
         for (rid, _), v in zip(batch, V, strict=True):
-            sums[rid] = sums[rid] + v if rid in sums else v.astype(np.float64)
-    new_vecs = {rid: (v / np.linalg.norm(v)).astype(np.float32) for rid, v in sums.items()}
+            parts.setdefault(rid, []).append(v.astype(np.float64))
+    new_vecs = {rid: _combine(vs, first_weight) for rid, vs in parts.items()}
     seconds = time.perf_counter() - t0
 
     ids = [r["id"] for r in records]
@@ -132,6 +135,7 @@ def run(
         "dim": dim,
         "max_chars": max_chars,
         "max_chunks": max_chunks,
+        "first_weight": first_weight,
         "text_prep": TEXT_PREP,
         "snapshot_sha256": snapshot_sha256,
         "embeddings_sha256": _sha256_file(tmp_npy),
@@ -155,6 +159,16 @@ def run(
     }
 
 
+def _combine(vecs: list[np.ndarray], first_weight: float | None) -> np.ndarray:
+    """Unit vector from a creator's chunk vectors: the plain mean, or, with first_weight=w,
+    w * first chunk + (1 - w) * mean of the rest (the first chunk is the bio's summary)."""
+    if first_weight is None or len(vecs) == 1:
+        v = np.mean(vecs, axis=0)
+    else:
+        v = first_weight * vecs[0] + (1 - first_weight) * np.mean(vecs[1:], axis=0)
+    return (v / np.linalg.norm(v)).astype(np.float32)
+
+
 class SentenceTransformerEncoder:
     def __init__(self, model_name: str, batch_size: int):
         from sentence_transformers import SentenceTransformer
@@ -175,6 +189,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
     ap.add_argument("--max-chunks", type=int, default=DEFAULT_MAX_CHUNKS, help="1 = first chunk only")
+    ap.add_argument("--first-weight", type=float, default=None,
+                    help="weight of the first chunk vs the mean of the rest (default: plain mean)")
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--out-dir", type=Path, default=None, help="default: data/embeddings")
     a = ap.parse_args(argv)
@@ -188,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
         model_name=settings.embedding_model,
         max_chars=a.max_chars,
         max_chunks=a.max_chunks,
+        first_weight=a.first_weight,
         snapshot_sha256=manifest["sha256"],
         batch_size=1024,
     )

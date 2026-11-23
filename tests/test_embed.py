@@ -161,3 +161,26 @@ def test_chunks_from_different_creators_do_not_mix_across_batches(tmp_path):
     run(FakeEncoder(), recs, tmp_path / "b", MODEL, max_chunks=8, batch_size=1000)
     Xb, _, _ = load_embeddings(tmp_path / "b")
     np.testing.assert_allclose(X, Xb, atol=1e-6)
+
+
+def test_first_weight_blends_first_chunk_with_mean_of_rest(tmp_path):
+    enc = FakeEncoder()
+    run(enc, [dict(LONG)], tmp_path, MODEL, max_chunks=8, first_weight=0.5)
+    X, _, meta = load_embeddings(tmp_path)
+    V = FakeEncoder().encode(enc.seen)
+    expect = 0.5 * V[0] + 0.5 * V[1:].mean(axis=0)
+    np.testing.assert_allclose(X[0], expect / np.linalg.norm(expect), atol=1e-6)
+    assert meta["first_weight"] == 0.5
+
+
+def test_first_weight_single_chunk_is_that_chunk(tmp_path):
+    enc = FakeEncoder()
+    run(enc, [{"id": "fandom_2", "title": "U", "description": "is a short bio"}], tmp_path, MODEL, first_weight=0.5)
+    X, _, _ = load_embeddings(tmp_path)
+    np.testing.assert_allclose(X[0], FakeEncoder().encode(enc.seen)[0], atol=1e-6)
+
+
+def test_changing_first_weight_reencodes(tmp_path):
+    run(FakeEncoder(), [dict(LONG)], tmp_path, MODEL, max_chunks=8)
+    stats = run(FakeEncoder(), [dict(LONG)], tmp_path, MODEL, max_chunks=8, first_weight=0.5)
+    assert stats["encoded"] == 1
