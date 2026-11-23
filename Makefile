@@ -22,8 +22,8 @@ embed:       ## embed new/changed creators (reuses cached vectors)
 cluster:     ## weekly: place creators into the existing clusters (assign mode)
 	$(PY) pipeline.cluster --mode assign
 
-recluster:   ## manual only, never scheduled: full re-fit (K=N to override N_CLUSTERS), then review names
-	$(PY) pipeline.cluster --mode fit $(if $(K),--k $(K))
+recluster:   ## manual only, never scheduled: full re-fit (K=N, FRESH=1 to re-name from seed labels), then review names
+	$(PY) pipeline.cluster --mode fit $(if $(K),--k $(K)) $(if $(FRESH),--fresh-names)
 
 compare-k:   ## compare cluster counts without touching the live model (KS=60,120,200)
 	$(PY) pipeline.compare_k $(if $(KS),--ks $(KS))

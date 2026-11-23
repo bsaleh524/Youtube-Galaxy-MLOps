@@ -157,3 +157,24 @@ def test_name_model_seeds_then_carries_and_registry_round_trips(tmp_path):
     assert rep2["method"] == "carried" and rep2["sources"]["carried"] == 5
     by_key = lambda m: {k: m.registry["clusters"][k]["name"] for k in m.meta["cluster_keys"]}
     assert by_key(again) == by_key(model)
+
+
+def test_name_model_fresh_ignores_previous_names(tmp_path):
+    from pipeline.cluster import name_model
+
+    X, ids, hashes = data()
+    texts = [f"topic{lab} words here" for lab in np.repeat(np.arange(5), 60)]
+    model, _ = do_fit(X, ids, hashes)
+    name_model(model, X, texts, None, {}, {})
+    for entry in model.registry["clusters"].values():
+        entry["name"] = "old name"
+    model.registry["next_key"] = 40
+    save_model(model, tmp_path / "galaxy", reducers=False)
+    prev = load_model(tmp_path / "galaxy")
+
+    seed = {rid: f"Group {i // 60}" for i, rid in enumerate(ids)}
+    again, _ = do_fit(X, ids, hashes, prev=prev)
+    rep = name_model(again, X, texts, prev, seed, {}, fresh=True)
+    assert rep["method"] == "seed"
+    assert sorted(again.meta["cluster_keys"]) == ["c001", "c002", "c003", "c004", "c005"]
+    assert "old name" not in {e["name"] for e in again.registry["clusters"].values()}

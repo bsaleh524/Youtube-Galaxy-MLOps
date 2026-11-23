@@ -127,8 +127,15 @@ def name_model(
     prev: GalaxyModel | None,
     seed_names: dict[str, str],
     owner_names: dict[str, str],
+    fresh: bool = False,
 ) -> dict:
-    """Fill model.meta["cluster_keys"] and model.registry; return the naming report."""
+    """Fill model.meta["cluster_keys"] and model.registry; return the naming report.
+
+    fresh=True ignores the previous model's names and colours and bootstraps from the seed labels
+    again (after a re-embed, old centroids no longer describe the same groups; issue #5).
+    """
+    if fresh:
+        prev = None
     prev_keys = prev.meta.get("cluster_keys") if prev is not None else None
     usable = prev is not None and prev.registry is not None and bool(prev_keys) and all(prev_keys)
     keys, registry, report = names.name_clusters(
@@ -234,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--mode", choices=["assign", "fit"], default="assign")
     ap.add_argument("--k", type=int, default=None, help="cluster count (default: N_CLUSTERS)")
     ap.add_argument("--run-id", default=datetime.now(UTC).strftime("%Y%m%d-%H%M%S"))
+    ap.add_argument("--fresh-names", action="store_true",
+                    help="fit mode: name clusters from the seed labels again instead of carrying old names")
     ap.add_argument("--no-save", action="store_true", help="write the model under the run dir only, without the UMAP pickles")
     a = ap.parse_args(argv)
     settings = load_settings()
@@ -270,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
     texts = [keyword_text(records[rid], protected, rows["max_chars"]) for rid in ids]
     seed_names = _read_json(settings.data_dir / "seed" / "seed_cluster_names.json")
     owner_names = _read_json(settings.data_dir / "cluster_names.json")
-    report["naming"] = name_model(model, X, texts, prev, seed_names, owner_names)
+    report["naming"] = name_model(model, X, texts, prev, seed_names, owner_names, fresh=a.fresh_names)
     report["unnamed"] = names.write_review(
         run_dir, model.meta["cluster_keys"], model.registry, model.labels, X, model.centroids, ids, records
     )
