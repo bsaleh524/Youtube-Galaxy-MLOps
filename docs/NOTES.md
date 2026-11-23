@@ -271,3 +271,23 @@ Owner picked k=120 for now. The goal is many *niche* clusters that each make sen
 - **Headers (curl, 2026-11-23):** Hostinger serves through its CDN (`server: hcdn`) with brotli for html/json/js. `.htaccess` is honoured: `cache-control: no-cache` on `galaxy/` (index.html) and `manifest.json`; `public, max-age=31536000, immutable` on `data/<version>/…` and `assets/…`. The home page has no cache header (none set; fine).
 - The CDN shows headless browsers a "Checking your browser" page for a few seconds; a real browser and plain HTTP requests (the publish live check) get through. Next publish: confirm the CDN serves the new `manifest.json` straight away (no-cache should make it revalidate).
 - The site is reachable but not announced; fix issue #5 (names dominate the embeddings) before sharing it, per the owner's Checkpoint 2 decision.
+
+## Issue #5 experiments (2026-11-23)
+
+Plan 3b, Task 4. Live `data/embeddings/` untouched; variants in `data/experiments/issue5/`. Scored with `make sanity` (`pipeline/sanity.py`). Name-lookalike = share of (creator, 10 nearest neighbours) pairs whose titles share a 3-letter word start; random pairs give 0.60 %.
+
+| | Baseline (title + first 2,000 chars) | Fix 1 (names stripped, first chunk) | Fix 1 + 2 (names stripped, mean of up to 8 chunks) |
+|---|---|---|---|
+| Name-lookalike rate | 14.18 % | **2.53 %** | **2.38 %** |
+| Silhouette (k=120) | 0.0120 | **0.0289** | 0.0237 |
+| 15 checks ✓ / ◐ / ✗ | 6 / 5 / 4 | 7 / 5 / 3 | 6 / 5 / 4 |
+| Embed time (M-series, MPS) | 2 min 51 s | 2 min 35 s | 3 min 45 s (29,304 chunks) |
+
+Verdicts (✓ ◐ ✗, same standard as Checkpoint 2):
+- **Fix 1** ✓: Dream, Ninja, Dude Perfect, Target/TARGET, Technoblade, Marques Brownlee (Dave2D, Soldier Knows Best, Tekify), Kurzgesagt (Free Documentary, Extra Credits, TierZoo, What If). ◐: James Charles, CoryxKenshin, Markiplier, Smosh, MrBeast. ✗: Linus Tech Tips, PewDiePie, Vsauce (next to nursery-rhyme channels).
+- **Fix 1 + 2** ✓: Dream, CoryxKenshin, Target/TARGET, Markiplier (DanTDM, Dawko, Jacksepticeye), Technoblade (TommyInnit, Ranboo, Tubbo), PewDiePie (T-Series, MrBeast, Jacksfilms). ◐: Ninja, Dude Perfect, Smosh, MrBeast, Kurzgesagt. ✗: James Charles (Minecraft streamers), Linus Tech Tips, Marques Brownlee, Vsauce.
+
+What it shows:
+- Removing names is the big win: lookalike neighbours drop from 24× chance to about 4×, and clusters separate 2.4× better.
+- Averaging whole pages adds a different signal. Long pages of famous creators share generic material (subscriber milestones, controversies, collaborations), so big creators end up next to other big creators. That's good for friend groups and rivalries (PewDiePie ↔ T-Series), bad for topics (Linus and MKBHD next to gamers).
+- Neither reaches the ≥ 12 ✓ target. Per the plan, stopped for the owner before adopting.
