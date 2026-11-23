@@ -90,3 +90,8 @@ def test_text_hash_depends_on_every_chunk_and_model():
     assert text_hash(["a", "b"], "m") != text_hash(["a", "b"], "n")
     assert text_hash(["ab"], "m") != text_hash(["a", "b"], "m")
     assert text_hash(["a"], "m") == text_hash(["a"], "m")
+
+
+def test_no_name_patterns_leaves_text_untouched():
+    # an empty pattern list must not become an empty regex (which matches between every character)
+    assert clean_text({"title": " ", "description": "abc def"}, PROTECTED) == "abc def"

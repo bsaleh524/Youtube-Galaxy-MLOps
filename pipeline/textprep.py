@@ -50,11 +50,11 @@ def clean_text(rec: dict, protected: frozenset[str]) -> str:
     terms = {w for w in _WORD.findall(lead) if any(c.isupper() for c in w)}
     terms |= set(_WORD.findall(title))
     terms = {t for t in terms if len(t) >= 3 and t not in _MONTHS and t not in protected}
-    patterns = [title, *sorted(terms, key=len, reverse=True)]
-    names = re.compile(
-        "|".join(r"(?<!\w)" + re.escape(p) + r"(?!\w)" for p in patterns if p.strip()), re.IGNORECASE
-    )
-    out = " ".join(names.sub(" ", body).split())
+    patterns = [p for p in (title.strip(), *sorted(terms, key=len, reverse=True)) if p]
+    if patterns:
+        names = re.compile("|".join(r"(?<!\w)" + re.escape(p) + r"(?!\w)" for p in patterns), re.IGNORECASE)
+        body = names.sub(" ", body)
+    out = " ".join(body.split())
     return out or title
 
 

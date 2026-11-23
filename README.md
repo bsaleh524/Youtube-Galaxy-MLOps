@@ -153,7 +153,8 @@ make mlflow           # local MLflow UI on :5000
 make airflow          # local Airflow on :8080
 make seed             # snapshot the 20,807-creator seed dataset (first run only)
 make embed            # embed new/changed creators (~3 min first time, seconds after)
-make recluster        # full re-fit (manual only; K=200 to override); then name clusters
+make recluster        # full re-fit (manual only; K=200 to override; FRESH=1 re-names from seed labels)
+make sanity           # score embeddings: 15 checks, name-lookalike rate, silhouette (EMB=dir OUT=file.md)
 make compare-k        # compare cluster counts (KS=60,120,200) without touching the live model
 make build            # write data/artifacts/galaxy/<version>/
 make pipeline         # embed → cluster (assign) → build; skips if nothing changed (FORCE=1)
