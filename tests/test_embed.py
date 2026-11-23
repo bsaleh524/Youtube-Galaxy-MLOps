@@ -101,7 +101,7 @@ def test_same_title_pages_get_separate_rows(tmp_path):
 
 
 def test_truncation_counted(tmp_path):
-    stats = run(FakeEncoder(), records(), tmp_path, model_name=MODEL, max_chars=30)
+    stats = run(FakeEncoder(), records(), tmp_path, model_name=MODEL, max_chars=30, max_chunks=1)
     assert stats["truncated"] > 0
 
 
@@ -120,3 +120,44 @@ def test_load_detects_mismatched_files(tmp_path):
     np.save(tmp_path / "embeddings.npy", np.zeros((3, 8), dtype=np.float32))
     with pytest.raises(ValueError, match="do not match"):
         load_embeddings(tmp_path)
+
+
+# --- chunk averaging (issue #5) ---------------------------------------------------------------
+
+LONG = {"id": "fandom_1", "title": "T", "description": "is " + "word " * 1100}  # ~5500 chars -> 3 chunks
+
+
+def test_vector_is_normalised_mean_of_chunks(tmp_path):
+    enc = FakeEncoder()
+    stats = run(enc, [dict(LONG)], tmp_path, MODEL, max_chars=2000, max_chunks=8)
+    assert len(enc.seen) == 3 and stats["chunks"] == 3 and stats["encoded"] == 1
+    X, _, meta = load_embeddings(tmp_path)
+    expect = FakeEncoder().encode(enc.seen).mean(axis=0)
+    np.testing.assert_allclose(X[0], expect / np.linalg.norm(expect), atol=1e-6)
+    assert meta["max_chunks"] == 8 and meta["text_prep"] == "v2-clean-chunks"
+
+
+def test_max_chunks_one_is_fix1_only(tmp_path):
+    enc = FakeEncoder()
+    stats = run(enc, [dict(LONG)], tmp_path, MODEL, max_chars=2000, max_chunks=1)
+    assert len(enc.seen) == 1 and stats["truncated"] == 1
+
+
+def test_changed_bio_reencodes_all_its_chunks(tmp_path):
+    other = {"id": "fandom_2", "title": "U", "description": "is a short bio"}
+    run(FakeEncoder(), [dict(LONG), other], tmp_path, MODEL, max_chunks=8)
+    stats = run(FakeEncoder(), [dict(LONG), other], tmp_path, MODEL, max_chunks=8)
+    assert stats["encoded"] == 0 and stats["chunks"] == 0
+    changed = {**LONG, "description": LONG["description"] + " more"}
+    enc = FakeEncoder()
+    stats = run(enc, [changed, other], tmp_path, MODEL, max_chunks=8)
+    assert stats["encoded"] == 1 and stats["chunks"] == 3 and len(enc.seen) == 3
+
+
+def test_chunks_from_different_creators_do_not_mix_across_batches(tmp_path):
+    recs = [{**LONG, "id": f"fandom_{i}", "description": f"is n{i} " + "word " * 1100} for i in range(3)]
+    run(FakeEncoder(), recs, tmp_path, MODEL, max_chunks=8, batch_size=2)  # batches split creators
+    X, _, _ = load_embeddings(tmp_path)
+    run(FakeEncoder(), recs, tmp_path / "b", MODEL, max_chunks=8, batch_size=1000)
+    Xb, _, _ = load_embeddings(tmp_path / "b")
+    np.testing.assert_allclose(X, Xb, atol=1e-6)

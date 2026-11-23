@@ -1,10 +1,11 @@
 """Embed creators incrementally: only new or changed texts are encoded, removed creators dropped.
 
-    uv run python -m pipeline.embed [--max-chars 2000] [--batch-size 64]
+    uv run python -m pipeline.embed [--max-chars 2000] [--max-chunks 8] [--batch-size 64] [--out-dir DIR]
 
 Reads the current snapshot (data/raw/current). Writes data/embeddings/:
     embeddings.npy   float32 (n, dim), L2-normalised, row i belongs to rows.json ids[i]
-    rows.json        {model, dim, max_chars, snapshot_sha256, embeddings_sha256, ids, hashes}
+    rows.json        {model, dim, max_chars, max_chunks, text_prep, snapshot_sha256, embeddings_sha256, ids, hashes}
+Each vector is the re-normalised mean of the creator's chunk vectors (textprep.embed_chunks).
 Rows follow snapshot order (numeric pageid). Rows are internal; everything downstream keys on id.
 The last stdout line is a JSON summary (for Airflow XCom in Plan 6).
 """
@@ -24,7 +25,14 @@ import numpy as np
 
 from pipeline.config import load_settings
 from pipeline.snapshot import load_current
-from pipeline.textprep import DEFAULT_MAX_CHARS, embed_chunks, protected_words, text_hash
+from pipeline.textprep import (
+    DEFAULT_MAX_CHARS,
+    DEFAULT_MAX_CHUNKS,
+    TEXT_PREP,
+    embed_chunks,
+    protected_words,
+    text_hash,
+)
 
 NORM_TOLERANCE = 1e-3
 
@@ -75,6 +83,7 @@ def run(
     out_dir: Path,
     model_name: str,
     max_chars: int = DEFAULT_MAX_CHARS,
+    max_chunks: int = DEFAULT_MAX_CHUNKS,
     snapshot_sha256: str | None = None,
     batch_size: int = 256,
 ) -> dict:
@@ -83,8 +92,8 @@ def run(
     texts, hashes, truncated = {}, {}, 0
     protected = protected_words(records)
     for r in records:
-        chunks, cut = embed_chunks(r, protected, max_chars, 1)
-        texts[r["id"]] = chunks[0]
+        chunks, cut = embed_chunks(r, protected, max_chars, max_chunks)
+        texts[r["id"]] = chunks
         hashes[r["id"]] = text_hash(chunks, model_name)
         truncated += cut
 
@@ -92,14 +101,18 @@ def run(
     reuse, todo, dropped = plan(hashes, prev)
 
     t0 = time.perf_counter()
-    new_vecs: dict[str, np.ndarray] = {}
-    for start in range(0, len(todo), batch_size):
-        batch = todo[start : start + batch_size]
-        V = np.asarray(encoder.encode([texts[i] for i in batch]), dtype=np.float32)
+    # Encode every chunk of every creator to do in flat batches, then average each creator's chunks.
+    flat = [(rid, chunk) for rid in todo for chunk in texts[rid]]
+    sums: dict[str, np.ndarray] = {}
+    for start in range(0, len(flat), batch_size):
+        batch = flat[start : start + batch_size]
+        V = np.asarray(encoder.encode([chunk for _, chunk in batch]), dtype=np.float32)
         norms = np.linalg.norm(V, axis=1)
         if not np.all(np.abs(norms - 1) < NORM_TOLERANCE):
             raise ValueError("encoder output is not normalised")
-        new_vecs.update(zip(batch, V, strict=True))
+        for (rid, _), v in zip(batch, V, strict=True):
+            sums[rid] = sums[rid] + v if rid in sums else v.astype(np.float64)
+    new_vecs = {rid: (v / np.linalg.norm(v)).astype(np.float32) for rid, v in sums.items()}
     seconds = time.perf_counter() - t0
 
     ids = [r["id"] for r in records]
@@ -118,6 +131,8 @@ def run(
         "model": model_name,
         "dim": dim,
         "max_chars": max_chars,
+        "max_chunks": max_chunks,
+        "text_prep": TEXT_PREP,
         "snapshot_sha256": snapshot_sha256,
         "embeddings_sha256": _sha256_file(tmp_npy),
         "ids": ids,
@@ -131,11 +146,12 @@ def run(
     return {
         "creators": len(ids),
         "encoded": len(todo),
+        "chunks": len(flat),
         "reused": len(reuse),
         "dropped": len(dropped),
         "truncated": truncated,
         "seconds": round(seconds, 2),
-        "per_second": round(len(todo) / seconds, 1) if todo and seconds > 0 else None,
+        "per_second": round(len(flat) / seconds, 1) if todo and seconds > 0 else None,
     }
 
 
@@ -158,7 +174,9 @@ class SentenceTransformerEncoder:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
+    ap.add_argument("--max-chunks", type=int, default=DEFAULT_MAX_CHUNKS, help="1 = first chunk only")
     ap.add_argument("--batch-size", type=int, default=64)
+    ap.add_argument("--out-dir", type=Path, default=None, help="default: data/embeddings")
     a = ap.parse_args(argv)
     settings = load_settings()
     records, manifest = load_current(settings.data_dir / "raw")
@@ -166,9 +184,10 @@ def main(argv: list[str] | None = None) -> int:
     stats = run(
         encoder,
         records,
-        settings.data_dir / "embeddings",
+        a.out_dir or settings.data_dir / "embeddings",
         model_name=settings.embedding_model,
         max_chars=a.max_chars,
+        max_chunks=a.max_chunks,
         snapshot_sha256=manifest["sha256"],
         batch_size=1024,
     )
