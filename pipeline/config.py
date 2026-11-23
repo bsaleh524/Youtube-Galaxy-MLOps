@@ -62,7 +62,14 @@ def _clean(value: str | None) -> str | None:
     return value or None
 
 
-def load_settings(env_file: Path | None = Path(".env")) -> Settings:
+# The .env read by default. Tests set this to None so they never see real credentials.
+ENV_FILE: Path | None = Path(".env")
+_DEFAULT = object()
+
+
+def load_settings(env_file=_DEFAULT) -> Settings:
+    if env_file is _DEFAULT:
+        env_file = ENV_FILE
     file_values = dotenv_values(env_file) if env_file and Path(env_file).exists() else {}
     kwargs = {}
     for field_name, env_name in _ENV_NAMES.items():

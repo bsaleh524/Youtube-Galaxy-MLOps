@@ -43,9 +43,10 @@ WORKER_MAX_BYTES = 60 * 1024 * 1024  # Workers Free script limit is 64 MiB uncom
 ATTRIBUTION = {
     "source": "YouTube Wiki (Fandom)",
     "source_url": "https://youtube.fandom.com/",
-    "license": "CC BY-SA",
-    # The wiki's own rightsinfo (MediaWiki siteinfo, checked 2026-11-22); it names no version.
-    "license_url": "https://www.fandom.com/licensing",
+    # https://www.fandom.com/licensing: "Creative Commons Attribution-Share Alike License 3.0 (Unported)"
+    # (read by the owner 2026-11-22; Fandom blocks automated fetches of that page).
+    "license": "CC BY-SA 3.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
     "note": "Creator text comes from the YouTube Wiki; each creator links its source page.",
 }
 

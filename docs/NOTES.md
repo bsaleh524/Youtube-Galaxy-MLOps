@@ -257,3 +257,9 @@ Owner picked k=120 for now. The goal is many *niche* clusters that each make sen
 - Publish order: galaxy data → assets → `.htaccess` → `index.html` → `manifest.json` → live check → home page → prune. Pruning keeps the 3 newest versions plus the one that was live before the publish, and only runs after the live check passes.
 - Whole-branch review (fresh reviewer): no critical issues; six fixes made test-first (pruning after a rollback, home.css always uploaded, home page only after the map is live, garbled hash links, stale search Enter, http(s)-only wiki links). Deferred minors are listed in the Checkpoint 3a report.
 - Current build `20261122-160428-c390a7b8`: upload 22 MB (6.2 MB gzip); first page load ≈ 0.75 MB gzip (JS 0.24 MB + nodes 0.49 MB), similar-creator lists 0.8 MB load after the map appears.
+
+## 2026-11-23 — Licence version, test isolation
+
+- **Licence confirmed by the owner** from https://www.fandom.com/licensing: "the text on Fandom communities … is licensed under the Creative Commons Attribution-Share Alike License 3.0 (Unported) (CC BY-SA)". Attribution is now `CC BY-SA 3.0` → https://creativecommons.org/licenses/by-sa/3.0/. Build `20261123-022138-c390a7b8`.
+- **Bug found and fixed:** tests read the developer's real `.env` (blank env values fall back to the file), so one publish test reached the SFTP connect step with real Hostinger settings. `pipeline.config.ENV_FILE` is now patched to `None` by an autouse fixture in `tests/conftest.py`; `tests/test_env_isolation.py` pins it.
+- Publish now refuses a `HOSTINGER_SFTP_KEY_PATH` that doesn't exist (it would otherwise be used instead of the password and fail obscurely).

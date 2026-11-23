@@ -216,7 +216,7 @@ class SftpRemote:
             client.connect(
                 s.hostinger_sftp_host, port=s.hostinger_sftp_port or 22, username=s.hostinger_sftp_user,
                 password=None if s.hostinger_sftp_key_path else s.hostinger_sftp_password,
-                key_filename=s.hostinger_sftp_key_path, look_for_keys=False, allow_agent=False, timeout=30,
+                key_filename=os.path.expanduser(s.hostinger_sftp_key_path) if s.hostinger_sftp_key_path else None, look_for_keys=False, allow_agent=False, timeout=30,
             )
         except paramiko.SSHException as e:
             raise SystemExit(f"SFTP connection failed: {e}. If the host key is unknown, see docs/DEPLOY.md.") from None
@@ -361,6 +361,10 @@ def _open(a, settings):
     require(settings, "HOSTINGER_SFTP_HOST", "HOSTINGER_SFTP_USER")
     if not (settings.hostinger_sftp_password or settings.hostinger_sftp_key_path):
         raise SystemExit("missing required setting: HOSTINGER_SFTP_PASSWORD or HOSTINGER_SFTP_KEY_PATH (set it in .env)")
+    key = settings.hostinger_sftp_key_path
+    if key and not Path(os.path.expanduser(key)).is_file():
+        raise SystemExit("HOSTINGER_SFTP_KEY_PATH points to a file that doesn't exist; fix it, or leave it empty "
+                         "in .env to log in with HOSTINGER_SFTP_PASSWORD")
     remote = SftpRemote(settings)
     return remote, settings.hostinger_home_dir.rstrip("/"), settings.hostinger_remote_dir.rstrip("/")
 

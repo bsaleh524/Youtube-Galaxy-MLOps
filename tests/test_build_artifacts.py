@@ -151,7 +151,7 @@ def test_manifest_sizes_match_disk(built):
     for rel, size in man["files"].items():
         assert (out / rel).stat().st_size == size
     assert man["creators"] == 12 and man["clusters"] == 3
-    assert man["attribution"]["license"] == "CC BY-SA"
+    assert man["attribution"]["license"] == "CC BY-SA 3.0"
     rep = size_report(out)
     assert rep["worker"][0] == sum(s for r, s in man["files"].items() if r.startswith("worker/"))
 
@@ -180,6 +180,6 @@ def test_details_pass_through_missing_flag(tmp_path, built):
 
 def test_attribution_has_license_url(built):
     att = load(built[0], "manifest.json")["attribution"]
-    # as reported by the wiki itself (MediaWiki siteinfo rightsinfo, checked 2026-11-22)
-    assert att["license"] == "CC BY-SA"
-    assert att["license_url"] == "https://www.fandom.com/licensing"
+    # fandom.com/licensing: "Creative Commons Attribution-Share Alike License 3.0 (Unported)" (owner, 2026-11-22)
+    assert att["license"] == "CC BY-SA 3.0"
+    assert att["license_url"] == "https://creativecommons.org/licenses/by-sa/3.0/"

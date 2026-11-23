@@ -369,3 +369,13 @@ def test_home_not_uploaded_when_galaxy_fails(tmp_path, build_dir, dist_dir, monk
     with pytest.raises(OSError):
         publish.main(["all", "--to-dir", str(out)])
     assert not (out / "index.html").exists()
+
+
+def test_sftp_key_path_must_exist(tmp_path, build_dir, dist_dir, monkeypatch):
+    monkeypatch.setattr(publish, "DIST_DIR", dist_dir)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    for k, v in {"HOSTINGER_SFTP_HOST": "sftp.example", "HOSTINGER_SFTP_USER": "u1",
+                 "HOSTINGER_SFTP_PASSWORD": "pw", "HOSTINGER_SFTP_KEY_PATH": str(tmp_path / "nope")}.items():
+        monkeypatch.setenv(k, v)
+    with pytest.raises(SystemExit, match="HOSTINGER_SFTP_KEY_PATH"):
+        publish.main(["galaxy", "--dry-run"])
