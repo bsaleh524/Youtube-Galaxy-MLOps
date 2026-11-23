@@ -28,6 +28,9 @@ recluster:   ## manual only, never scheduled: full re-fit (K=N to override N_CLU
 compare-k:   ## compare cluster counts without touching the live model (KS=60,120,200)
 	$(PY) pipeline.compare_k $(if $(KS),--ks $(KS))
 
+sanity:      ## score embeddings: 15 checks, name-lookalike rate, silhouette (EMB=dir OUT=file.md)
+	$(PY) pipeline.sanity $(if $(EMB),--embeddings $(EMB)) $(if $(OUT),--out $(OUT))
+
 build:       ## write data/artifacts/galaxy/<version>/ (site + Worker files)
 	$(PY) pipeline.build_artifacts
 
