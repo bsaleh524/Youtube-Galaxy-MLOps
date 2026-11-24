@@ -166,10 +166,10 @@ make web-dev          # local map with hot reload at http://localhost:5173/galax
 make web-build        # build the site into web/dist
 make preview          # stage the exact Hostinger tree and serve it on :8080 (phone-friendly)
 make publish-dry      # show what a publish would upload (connects read-only)
-make publish          # upload home page + map to Hostinger (manifest last), verify, prune; see docs/DEPLOY.md
+make publish          # Worker first (when WORKER_URL is set), then home page + map to Hostinger; see docs/DEPLOY.md
 make rollback VERSION=<version>  # point the live map at an older data version
-make worker-dev       # local Worker via wrangler
-make publish-chat     # Worker deploy + chat widget (planned, Plan 4); the eval gate comes later
+make chat-dev         # local chat Worker on :8787 with the newest build's index (see docs/DEPLOY.md)
+make publish-chat     # redeploy only the chat Worker, then check its /health
 ```
 
 The first run can reuse the 20,807-creator dataset already scraped in the sibling repo (`Controversy-Early-Warning-System/data/fandom/`). No re-crawl is needed to get started.
@@ -201,6 +201,8 @@ make import-names FILE=data/naming/names_reply.txt         # merge into data/clu
 ```
 
 `make naming-brief` only lists clusters that are still unnamed, so after a full import it says "Nothing to name". `import-names` keeps names you already set unless you add `FORCE=1`. Details: [docs/NAMING_CLUSTERS.md](docs/NAMING_CLUSTERS.md).
+
+**The chat Worker follows the site.** Once `WORKER_URL` is in `.env`, every `make publish` redeploys the Worker with the same build first and checks it. If you roll the site back, also run `uv run python -m pipeline.publish worker --version <VERSION>` (docs/DEPLOY.md).
 
 **Weekly data refresh.** `make pipeline` re-embeds only changed creators, places them in the existing clusters (keys and names don't change), and builds. If nothing changed, it skips; use `FORCE=1` to rebuild anyway. Then preview and publish.
 

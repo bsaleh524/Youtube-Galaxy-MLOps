@@ -44,7 +44,7 @@ export function mountChatPanel(
   const input = el("input");
   input.type = "text";
   input.maxLength = 300;
-  input.placeholder = "e.g. science explainers, or channels like Vsauce";
+  input.placeholder = "e.g. science explainers";
   input.setAttribute("aria-label", "Ask about creators");
   const go = el("button", "go", "Ask");
   go.type = "submit";

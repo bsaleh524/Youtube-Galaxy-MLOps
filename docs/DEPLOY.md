@@ -1,6 +1,6 @@
 # Deploying YouTube Galaxy
 
-Covers the **Hostinger** side: the home page and the map. The Cloudflare Worker (chat) comes with Plan 4.
+Covers the **Hostinger** side (the home page and the map) and the **Cloudflare Worker** that answers the map's chat panel (see "Cloudflare Worker (chat)" below).
 
 Nothing here costs money. Hostinger Premium is already paid for and only serves static files.
 
@@ -92,4 +92,31 @@ make rollback VERSION=20261122-160428-c390a7b8
 
 ## Free-plan limits
 
-None apply to the static site beyond Hostinger Premium's own storage and bandwidth. One publish is about 22 MB (6 MB compressed in transit), so 3 kept versions use about 65 MB of disk.
+None apply to the static site beyond Hostinger Premium's own storage and bandwidth. The Worker uses the Cloudflare free plan: 100,000 requests a day, 10 ms CPU per request, and the Workers AI free daily quota for question embeddings. One publish is about 22 MB (6 MB compressed in transit), so 3 kept versions use about 65 MB of disk.
+
+## Cloudflare Worker (chat)
+
+The chat panel on the map calls a free Cloudflare Worker, `galaxy-chat`. It holds the search index (bundled into the script), embeds questions with Workers AI, and answers `POST /api/chat`. Its code is in `worker/`. It needs no secrets: the CORS allow-list is in `worker/wrangler.jsonc` (`vars.ALLOWED_ORIGINS`).
+
+**One-time setup**
+
+1. Log in once: `cd worker && npx wrangler login` (opens a browser).
+2. First deploy: `make publish-chat`. It copies the newest build's index into `worker/assets/`, deploys, and prints the Worker's address, e.g. `https://galaxy-chat.<your-subdomain>.workers.dev`.
+3. Put that address in `.env` as `WORKER_URL=https://galaxy-chat.<your-subdomain>.workers.dev` (no trailing `/api/chat`).
+4. Run `make build`, then `make publish`. The build adds `chat.url` to the map's manifest, which turns the chat panel on.
+
+**Each publish after that.** `make publish` deploys the Worker **first**, waits until `WORKER_URL/health` reports the new build's version, and only then uploads the site. If the check fails, it stops before touching Hostinger, so the panel never talks to a Worker with different data. `make publish-chat` redeploys just the Worker.
+
+**Local testing.**
+1. Copy `worker/.dev.vars.example` to `worker/.dev.vars`; this allows the localhost origins.
+2. Run `make chat-dev`, which serves the Worker on `http://localhost:8787`. Workers AI still runs on Cloudflare, so you need to be logged in.
+3. In a second terminal, run `make web-data && VITE_CHAT_URL=http://localhost:8787/api/chat make web-dev`.
+
+**What visitors might see**
+- **"Search is resting for today":** the Workers AI free daily quota is used up. Name questions ("channels like X") still work because they don't use AI. The quota resets daily (00:00 UTC).
+- **"Too many questions at once":** the rate limit was hit, 10 per minute per visitor and 300 per minute overall. Cloudflare counts these per data centre.
+- **"Search is unavailable right now":** the Worker is down or slow (more than 10 s). The map itself keeps working.
+
+**Rolling back the Worker.** In `worker/`, `npx wrangler deployments list` shows recent versions, and `npx wrangler rollback` restores the previous one. After a site rollback (`make rollback VERSION=…`), also run `uv run python -m pipeline.publish worker --version <VERSION>`, so the Worker serves the same data.
+
+**Checking the speed** (issue #1). `SLEEP=6 scripts/chat_load.sh $WORKER_URL 60` sends 60 name-lookup questions over about 6 minutes; these use no AI quota, and the spacing keeps them under the per-visitor rate limit. A few minutes later, `uv run python scripts/worker_cpu.py --since <start time>` reads the CPU time per request from Cloudflare; the free plan allows 10 ms.
