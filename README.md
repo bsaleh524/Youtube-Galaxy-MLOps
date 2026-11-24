@@ -2,7 +2,7 @@
 
 An explorable map of ~20,800 YouTube creators, grouped by how similar their wiki descriptions are, plus a chat box that answers questions about them. Hobby project, built to run for **$0/month**, with Airflow and MLflow doing the real MLOps work on a home machine.
 
-> **Status: re-plan complete, implementation pending.** The repo was originally a Kubernetes/Oracle Cloud stack (see [`archive/`](archive/)). It was simplified to the design below. This README describes the **target** state. To build it, hand [`docs/IMPLEMENTATION_PROMPT.md`](docs/IMPLEMENTATION_PROMPT.md) to a Claude Code instance. Commands marked *(planned)* don't exist yet.
+> **Status (2026-11-24): map and chat search are live** at spookypharaoh.com/galaxy/ (not announced yet). The chat answers in `search` mode; `ask` mode is not built (issue #8). Next: Plan 5 (eval, MLflow, quality gate). The repo was originally a Kubernetes/Oracle Cloud stack (see [`archive/`](archive/)). Commands marked *(planned)* don't exist yet.
 
 ---
 
@@ -104,8 +104,8 @@ Creators are referenced by stable id (e.g. `fandom_500338`), never by array posi
 
 One endpoint, two modes, built in this order:
 
-1. **`search`** (ship first): embed the question, return the closest creators. No LLM. Cheapest, most robust, and arguably the best part.
-2. **`ask`**: take the top ~8 results, put their bios in a prompt, and stream an LLM answer that cites the creators it used. The LLM only sees retrieved text, so it answers from your data, not from memory.
+1. **`search`** (live): embed the question, return the closest creators. "channels like X" uses X's own position instead. No LLM. Cheapest, most robust, and arguably the best part.
+2. **`ask`** (not built, issue #8; may need a budget): take the top ~8 results, put their bios in a prompt, and stream an LLM answer that cites the creators it used. The LLM only sees retrieved text, so it answers from your data, not from memory.
 
 Query embedding and the LLM both use **Workers AI**, so no API keys are needed. Groq is a supported alternative if you provide a key. Free-tier Workers AI hard-stops at its daily quota, so the chat degrades to a friendly "resting for today" message rather than a bill.
 

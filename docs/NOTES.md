@@ -336,3 +336,37 @@ What it shows:
 - It can't rank ("most controversial") or answer relationship questions ("who hates Ludwig").
 - The panel hint says so.
 - Issue #7 tracks a "who mentions X" lookup.
+
+## Plan 4 — chat search published (2026-11-24)
+
+**What's live:**
+- Build `20261124-053913-640c47c5`: the Worker `galaxy-chat` was deployed first and checked via `/health`, then the site was uploaded.
+- The live manifest has `chat.url`, so the panel shows.
+- The previous build `20261123-022138-c390a7b8` was pruned.
+
+**Live checks:**
+
+| Question | Result |
+|---|---|
+| "science explainers" | Neuro Transmissions, Jam's Germs, TheSimplySpace, Steve Mould, … |
+| "channels like Markiplier" | similar to Markiplier |
+| "minecraft speedruns" | TheeSizzler, Couriway, Silverrruns, … |
+| "cooking" | Manjula, Gesund und schnell, Lazy Pot Noodle, … |
+| "creators like Vsauce" | similar to Vsauce: Vsauce2, Curious Tangents, … |
+
+- A bad Origin and a missing Origin each got **403**.
+- Owner verdict on quality: "ok… passable". Longer questions and full chat are issue #8 (may cost money).
+
+**Rate limits don't trigger (issue #9):**
+- Bursts of up to 40 from one IP all got 200.
+- One client's requests alternate between EWR and IAD and spread over many isolates.
+- A per-isolate fallback was added (b96b61f) but also didn't trip.
+- No cost risk: quota exhaustion shows "resting for today".
+
+**CPU (issue #1, kept open):**
+- Requests 6 s apart: p50 about 12 ms, p99 15–33 ms. This holds even for name lookups with no AI call.
+- Back-to-back requests: p50 about 2.5 ms, p99 about 6 ms.
+- Local `searchChat` on the real index: 0.64 ms (`worker/bench/chat_real.bench.ts`).
+- So the cost is cold isolates or caches, not our code. There were 0 errors in about 200 requests.
+- Client latency: p50 174 ms, p95 433 ms.
+

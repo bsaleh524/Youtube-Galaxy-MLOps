@@ -114,7 +114,7 @@ The chat panel on the map calls a free Cloudflare Worker, `galaxy-chat`. It hold
 
 **What visitors might see**
 - **"Search is resting for today":** the Workers AI free daily quota is used up. Name questions ("channels like X") still work because they don't use AI. The quota resets daily (00:00 UTC).
-- **"Too many questions at once":** the rate limit was hit, 10 per minute per visitor and 300 per minute overall. Cloudflare counts these per data centre.
+- **"Too many questions at once":** the rate limit was hit, 10 per minute per visitor and 300 per minute overall. Cloudflare counts these per data centre. In practice (issue #9) the limit has not been seen to trigger yet.
 - **"Search is unavailable right now":** the Worker is down or slow (more than 10 s). The map itself keeps working.
 
 **Rolling back the Worker.** In `worker/`, `npx wrangler deployments list` shows recent versions, and `npx wrangler rollback` restores the previous one. After a site rollback (`make rollback VERSION=…`), also run `uv run python -m pipeline.publish worker --version <VERSION>`, so the Worker serves the same data.
