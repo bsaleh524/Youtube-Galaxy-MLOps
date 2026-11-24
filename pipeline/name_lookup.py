@@ -17,13 +17,19 @@ CUES: list[list[str]] = [
     ["resembling"],
     ["than"],
 ]
-FILLER = frozenset({"videos", "video", "content", "channel", "channels", "stuff", "please", "youtube", "on"})
+FILLER = frozenset(
+    {"videos", "video", "content", "channel", "channels", "stuff", "please", "youtube", "on"}
+)
 MIN_TITLE = 3
 
 
 def fold_name(s: str) -> str:
     """NFKD, drop combining marks, lowercase, every run of non-letters/numbers -> one space."""
-    s = "".join(ch for ch in unicodedata.normalize("NFKD", s) if not unicodedata.category(ch).startswith("M"))
+    s = "".join(
+        ch
+        for ch in unicodedata.normalize("NFKD", s)
+        if not unicodedata.category(ch).startswith("M")
+    )
     out: list[str] = []
     gap = False
     for ch in s.lower():
@@ -37,7 +43,9 @@ def fold_name(s: str) -> str:
     return "".join(out)
 
 
-def build_name_index(titles: list[str], topic_words: set[str] | frozenset[str] = frozenset()) -> dict[str, int]:
+def build_name_index(
+    titles: list[str], topic_words: set[str] | frozenset[str] = frozenset()
+) -> dict[str, int]:
     """Folded title -> lowest row with that title; short titles and topic words are left out."""
     out: dict[str, int] = {}
     for row, title in enumerate(titles):
