@@ -15,6 +15,7 @@ export interface Manifest {
   creators: number;
   clusters: number;
   attribution: Attribution;
+  chat?: { url: string }; // set when the chat Worker is deployed (WORKER_URL at build time)
 }
 
 export interface ClusterInfo {

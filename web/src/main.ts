@@ -1,10 +1,12 @@
 import "./style.css";
 import type { Focus } from "./colour";
+import { askChat, chatUrl } from "./chat";
 import { BASE } from "./config";
 import { createLoader, DataError, loadGalaxy, loadManifest, type Galaxy, type Loader, type Manifest } from "./data";
 import { formatHash, parseHash, type HashState } from "./hash";
 import { createMap, type GalaxyMap } from "./map";
 import { makeSearch } from "./search";
+import { mountChatPanel } from "./ui/chat-panel";
 import { renderDetail } from "./ui/detail";
 import { renderFooter } from "./ui/footer";
 import { renderLegend } from "./ui/legend";
@@ -144,6 +146,42 @@ function loadNeighboursLater(app: App) {
   else setTimeout(() => void go(), 500);
 }
 
+const isPhone = () => !(window.matchMedia?.("(min-width: 700px)").matches ?? true);
+
+/** The chat side panel, only when a chat Worker is configured (manifest chat.url or VITE_CHAT_URL). */
+function mountChat(app: App) {
+  const url = chatUrl(app.manifest);
+  if (!url) return;
+  const slot = $("chat-slot");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "toggle chat-toggle";
+  btn.textContent = "Ask";
+  btn.setAttribute("aria-controls", "chat-slot");
+  const panel = mountChatPanel(
+    slot,
+    app.g,
+    (q, forceTopic) => askChat(fetch, url, q, { forceTopic }),
+    (i) => {
+      selectCreator(app, i);
+      if (isPhone()) setOpen(false); // the creator card needs the bottom of the screen
+    },
+  );
+  const setOpen = (open: boolean) => {
+    if (open) panel.open();
+    else panel.close();
+    btn.setAttribute("aria-expanded", String(open));
+  };
+  new MutationObserver(() => btn.setAttribute("aria-expanded", String(!slot.classList.contains("closed")))).observe(
+    slot,
+    { attributes: true, attributeFilter: ["class"] },
+  );
+  btn.addEventListener("click", () => setOpen(slot.classList.contains("closed")));
+  slot.hidden = false;
+  setOpen(!isPhone());
+  $("toggles").prepend(btn);
+}
+
 async function start() {
   const status = $("status");
   let g: Galaxy;
@@ -197,6 +235,7 @@ async function start() {
   setLegend(window.matchMedia?.("(min-width: 700px)").matches ?? true);
   legendBtn.addEventListener("click", () => setLegend(legend.classList.contains("closed")));
   $("toggles").prepend(legendBtn);
+  mountChat(app);
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) clearSelection(app);

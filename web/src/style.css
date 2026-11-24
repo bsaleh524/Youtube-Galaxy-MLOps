@@ -107,10 +107,40 @@ button { cursor: pointer; }
 }
 .neighbours button:hover { background: #24244a; }
 
+.chat {
+  position: absolute; right: var(--gutter); top: var(--gutter); bottom: var(--gutter); width: 340px; z-index: 2;
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.chat[hidden], .chat.closed { display: none; }
+.chat-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 0; }
+.chat-top h2 { margin: 0; font-size: 1rem; }
+.chat .close { border: 0; background: transparent; font-size: 1.3rem; line-height: 1; padding: 2px 6px; }
+.chat-form { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.chat-form input { flex: 1; min-width: 0; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: #0d0d1c; }
+.chat-form .go { border: 1px solid var(--line); background: #24244a; border-radius: 6px; padding: 6px 12px; }
+.chat-results { flex: 1; overflow: auto; padding: 8px 10px; }
+.chat-results .hint, .chat-results .msg, .chat-foot { color: var(--muted); font-size: 0.85rem; }
+.chat-foot { margin: 0; padding: 6px 12px 10px; font-size: 0.72rem; border-top: 1px solid var(--line); }
+.chat-head { margin: 4px 2px 6px; font-size: 0.9rem; }
+.chat-head .link { border: 0; background: transparent; padding: 0; color: var(--focus); font: inherit; text-decoration: underline; }
+.chat .as-topic { border: 0; background: transparent; padding: 0 2px 6px; color: var(--muted); font-size: 0.78rem; text-decoration: underline; }
+.chat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.chat .result {
+  width: 100%; text-align: left; background: transparent; border: 0; border-radius: 6px; padding: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.chat .result:hover, .chat .result:focus-visible { background: #24244a; }
+.chat .result .title { font-size: 0.9rem; }
+.chat .result .cluster { display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--muted); }
+.chat .result .swatch { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.chat .result .snippet {
+  font-size: 0.78rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
 @media (max-width: 699px) {
   .brand { font-size: 1rem; }
   .search { order: 3; flex-basis: 100%; }
-  .legend, .detail {
+  .legend, .detail, .chat {
     left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 55%;
     border-radius: var(--radius) var(--radius) 0 0;
   }
