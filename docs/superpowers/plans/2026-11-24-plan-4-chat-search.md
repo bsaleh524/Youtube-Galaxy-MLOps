@@ -51,7 +51,8 @@
 - **Publishing.** No real deploy or upload without the owner's explicit go (Task 7).
 - **Response contract.** Every task uses exactly this:
   ```
-  POST /api/chat   body {question: string, mode?: "search" | "ask"}   (mode defaults to "search")
+  POST /api/chat   body {question: string, mode?: "search" | "ask", force_topic?: boolean}   (mode defaults to "search";
+                   force_topic skips the name lookup — the panel's "search it as a topic instead" button)
   200 {status:"ok", mode:"search", kind:"topic"|"similar", about:{id,title}|null,
        results:[{id,title,cluster,score,url,snippet}], index_version}
   400 {status:"bad_request", error:"empty"|"too_long"|"bad_json"|"bad_mode"}
@@ -63,6 +64,7 @@
   - `score` is rounded to 4 decimals.
   - `cluster` is the cluster **name** string (that is what `meta.bin` stores).
   - In `similar` mode the named creator is excluded from `results`.
+  - Name lookup never matches a title that is a topic word: `index_manifest.json` gains `topic_words`, the folded words found in ≥ 5% of bios (`textprep.protected_words`), written by the build in Task 4. Without that key the Worker uses an empty set.
 
 ## Review Focus
 
