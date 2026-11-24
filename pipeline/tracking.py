@@ -122,7 +122,7 @@ def set_champion(data_dir: Path, version: str) -> str | None:
 
 
 def champion(data_dir: Path) -> dict | None:
-    """{"version", "run_id", "model_version", "metrics"} of the live build, or None if none is set."""
+    """{"version", "run_id", "model_version", "metrics", "params"} of the live build, or None if none is set."""
     from mlflow.exceptions import MlflowException
 
     client = _client(data_dir)
@@ -136,6 +136,7 @@ def champion(data_dir: Path) -> dict | None:
         "run_id": mv.run_id,
         "model_version": str(mv.version),
         "metrics": dict(run.data.metrics),
+        "params": dict(run.data.params),
     }
 
 

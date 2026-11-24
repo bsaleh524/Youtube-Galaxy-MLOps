@@ -2,7 +2,7 @@
 # Still to come in later plans: Worker deploy, eval, gate (and a scraper/importer, issue #4).
 
 .PHONY: help setup mlflow airflow web-dev web-build worker-dev worker-deploy test clean \
-	seed embed cluster recluster compare-k sanity naming-brief import-names build eval pipeline \
+	seed embed cluster recluster compare-k sanity naming-brief import-names build eval gate pipeline \
 	web-data stage preview publish-dry publish rollback publish-chat chat-dev
 
 PY := uv run python -m
@@ -42,6 +42,9 @@ build:       ## write data/artifacts/galaxy/<version>/ (site + Worker files)
 
 eval:        ## score the newest build on eval/questions.yaml, log to MLflow (BUILD=dir, NO_MLFLOW=1)
 	$(PY) pipeline.evaluate $(if $(BUILD),--build $(BUILD)) $(if $(NO_MLFLOW),--no-mlflow)
+
+gate:        ## pass/fail the newest build's eval report against eval/gate.yaml and the live build (VERSION=v)
+	$(PY) pipeline.gate $(if $(VERSION),--version $(VERSION))
 
 pipeline:    ## embed -> cluster -> build; skips if nothing changed (FORCE=1 to rebuild)
 	$(PY) pipeline.run $(if $(FORCE),--force)

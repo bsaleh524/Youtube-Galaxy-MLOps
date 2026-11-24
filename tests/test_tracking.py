@@ -52,6 +52,7 @@ def test_log_then_champion_roundtrip(data_dir, tmp_path):
     assert c["metrics"]["recall_at_8_approved"] == 0.5
     assert c["metrics"]["creators"] == 12
     assert "mrr_all" not in c["metrics"]  # null metrics are skipped
+    assert c["params"]["questions_sha256"] == "ab" * 32
 
 
 def test_set_champion_moves_alias(data_dir, tmp_path):
