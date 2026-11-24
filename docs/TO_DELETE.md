@@ -43,6 +43,14 @@ rm -rf data/_before_plan2_run data/raw/snapshots/20261118-041529 data/raw/snapsh
 
 Frees about 1.1 GB.
 
+### Plan 4 ledger (added 2026-11-24)
+
+`.superpowers/sdd/2026-11-24-plan-4-chat-search/`: the plan's progress ledger (git-ignored). Plan 4 is done, and its rulings are recorded in the final summary and in `docs/NOTES.md`. It's a few KB.
+
+```bash
+rm -rf .superpowers/sdd/2026-11-24-plan-4-chat-search
+```
+
 ## Done
 
 _(nothing yet)_
