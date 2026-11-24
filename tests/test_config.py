@@ -91,3 +91,10 @@ def test_hostinger_values_read_and_port_cast(tmp_path, monkeypatch):
     s = load_settings(f)
     assert (s.hostinger_sftp_host, s.hostinger_sftp_port, s.hostinger_sftp_user) == ("example.host", 65002, "u1")
     assert s.hostinger_sftp_password is None
+
+
+def test_worker_url_trailing_slash_stripped(tmp_path, monkeypatch):
+    monkeypatch.setenv("WORKER_URL", "https://x.workers.dev/")
+    assert load_settings(tmp_path / "missing.env").worker_url == "https://x.workers.dev"
+    monkeypatch.delenv("WORKER_URL")
+    assert load_settings(tmp_path / "missing.env").worker_url is None

@@ -27,6 +27,7 @@ import os
 import re
 import shutil
 import sys
+import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -63,6 +64,11 @@ def cut(text: str | None, limit: int) -> str:
     return head.rstrip(" ,;:-") + "…"
 
 
+def fold_word(w: str) -> str:
+    """Fold like worker/src/names.ts foldName for a single word: NFKD, drop marks, lowercase."""
+    return "".join(c for c in unicodedata.normalize("NFKD", w) if not unicodedata.combining(c)).lower()
+
+
 def make_version(embeddings_sha256: str, now: datetime | None = None) -> str:
     now = now or datetime.now(UTC)
     return f"{now.strftime('%Y%m%d-%H%M%S')}-{embeddings_sha256[:8]}"
@@ -97,8 +103,14 @@ def build(
     out_root: Path,
     version: str,
     inputs: dict | None = None,
+    chat_url: str | None = None,
+    topic_words: list[str] | None = None,
 ) -> Path:
-    """Write <out_root>/<version>/ atomically and return it."""
+    """Write <out_root>/<version>/ atomically and return it.
+
+    chat_url (the Worker's base URL) adds `chat.url` to manifest.json, which turns on the site's
+    chat panel. topic_words go into the Worker's index_manifest.json: titles equal to one of them
+    never count as creator names in the chat's name lookup (worker/src/names.ts)."""
     ids = model.ids
     missing = [rid for rid in ids if rid not in records]
     if missing:
@@ -181,6 +193,7 @@ def build(
         _dump(w / "index_manifest.json", {
             "version": version, "n": len(ids), "dim": int(X.shape[1]), "k": k,
             "model": model.meta["embedding_model"],
+            **({"topic_words": sorted({fold_word(w) for w in topic_words})} if topic_words else {}),
         })
 
         files = {
@@ -197,6 +210,7 @@ def build(
                 "sizes": clusterlib.size_stats(labels, k),
             },
             "attribution": ATTRIBUTION,
+            **({"chat": {"url": f"{chat_url.rstrip('/')}/api/chat"}} if chat_url else {}),
             "inputs": inputs or {},
             "files": files,
         })
@@ -254,14 +268,17 @@ def main(argv: list[str] | None = None) -> int:
     model = load_model(settings.data_dir / "model" / "galaxy")
     if model.meta.get("embeddings_sha256") != rows["embeddings_sha256"] or model.ids != ids:
         ap.error("model is out of date with the embeddings; run `python -m pipeline.cluster` first")
-    records = {r["id"]: r for r in load_current(settings.data_dir / "raw")[0]}
+    all_records = load_current(settings.data_dir / "raw")[0]
+    records = {r["id"]: r for r in all_records}
     names_file = settings.data_dir / "cluster_names.json"
     owner = json.loads(names_file.read_text(encoding="utf-8")) if names_file.exists() else {}
 
     version = make_version(rows["embeddings_sha256"])
     from pipeline.run import current_inputs
+    from pipeline.textprep import protected_words
 
-    path = build(records, X, model, owner, out, version, inputs=current_inputs(settings.data_dir))
+    path = build(records, X, model, owner, out, version, inputs=current_inputs(settings.data_dir),
+                 chat_url=settings.worker_url, topic_words=sorted(protected_words(all_records)))
     rep = size_report(path)
     print_sizes(rep)
     if rep["worker"][0] > WORKER_MAX_BYTES:

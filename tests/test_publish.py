@@ -379,3 +379,130 @@ def test_sftp_key_path_must_exist(tmp_path, build_dir, dist_dir, monkeypatch):
         monkeypatch.setenv(k, v)
     with pytest.raises(SystemExit, match="HOSTINGER_SFTP_KEY_PATH"):
         publish.main(["galaxy", "--dry-run"])
+
+
+# ---------------------------------------------------------------- Plan 4: Worker deploy
+
+WORKER_FILES = ["index.bin", "centroids.bin", "meta.bin", "index_manifest.json"]
+
+
+def _worker_build(build_dir):
+    for name in WORKER_FILES:
+        _write(build_dir / "worker" / name, f"new {name}")
+    return build_dir
+
+
+def test_stage_worker_copies_the_four_files(tmp_path, build_dir):
+    assets = tmp_path / "assets"
+    _write(assets / "index.bin", "stale")
+    assert publish.stage_worker(_worker_build(build_dir), assets) == WORKER_FILES
+    for name in WORKER_FILES:
+        assert (assets / name).read_text() == f"new {name}"
+
+
+def test_stage_worker_names_a_missing_file(tmp_path, build_dir):
+    _worker_build(build_dir)
+    (build_dir / "worker" / "meta.bin").unlink()
+    with pytest.raises(FileNotFoundError, match="meta.bin"):
+        publish.stage_worker(build_dir, tmp_path / "assets")
+
+
+def test_deploy_worker_runs_wrangler_and_fails_loudly(tmp_path):
+    calls = []
+
+    class Done:
+        def __init__(self, rc):
+            self.returncode = rc
+
+    def run(cmd, cwd):
+        calls.append((cmd, cwd))
+        return Done(0)
+
+    publish.deploy_worker(tmp_path, run=run)
+    assert calls == [(["npx", "wrangler", "deploy"], tmp_path)]
+    with pytest.raises(RuntimeError):
+        publish.deploy_worker(tmp_path, run=lambda cmd, cwd: Done(1))
+
+
+def test_verify_worker_retries_until_the_version_shows():
+    answers = iter([OSError("down"), json.dumps({"index_version": "old"}).encode(),
+                    json.dumps({"ok": True, "index_version": V}).encode()])
+    seen, sleeps = [], []
+
+    def fetch(url, headers):
+        seen.append(url)
+        a = next(answers)
+        if isinstance(a, Exception):
+            raise a
+        return a
+
+    assert publish.verify_worker("https://x.workers.dev", V, fetch=fetch, tries=5, sleep=sleeps.append)
+    assert seen[0].startswith("https://x.workers.dev/health")
+    assert len(sleeps) == 2
+
+
+def test_verify_worker_gives_up():
+    sleeps = []
+    ok = publish.verify_worker("https://x", V, fetch=lambda u, h: b'{"index_version": "old"}', tries=3,
+                               sleep=sleeps.append)
+    assert ok is False and len(sleeps) == 2
+
+
+def test_worker_dry_run_runs_nothing(tmp_path, build_dir, monkeypatch, capsys):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(publish, "WORKER_ASSETS", tmp_path / "assets")
+    monkeypatch.setattr(publish, "deploy_worker", lambda *a, **k: pytest.fail("deployed on a dry run"))
+    _worker_build(build_dir)
+    assert publish.main(["worker", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert all(name in out for name in WORKER_FILES) and "wrangler deploy" in out
+    assert not (tmp_path / "assets").exists()
+
+
+def test_worker_stage_only_never_deploys(tmp_path, build_dir, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(publish, "WORKER_ASSETS", tmp_path / "assets")
+    monkeypatch.setattr(publish, "deploy_worker", lambda *a, **k: pytest.fail("deployed on --stage-only"))
+    _worker_build(build_dir)
+    assert publish.main(["worker", "--stage-only"]) == 0
+    assert (tmp_path / "assets" / "meta.bin").exists()
+
+
+def _all_env(tmp_path, build_dir, dist_dir, monkeypatch, worker_url):
+    monkeypatch.setattr(publish, "DIST_DIR", dist_dir)
+    home = tmp_path / "home"
+    _write(home / "index.html", "home")
+    monkeypatch.setattr(publish, "HOME_DIR", home)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    if worker_url:
+        monkeypatch.setenv("WORKER_URL", worker_url)
+    else:
+        monkeypatch.delenv("WORKER_URL", raising=False)
+    root = tmp_path / "remote"
+    monkeypatch.setattr(publish, "_open", lambda a, s: (publish.LocalRemote(root), "", "galaxy"))
+    monkeypatch.setattr(publish, "verify", lambda url, version: True)
+    order = []
+    real_execute = publish.execute
+    monkeypatch.setattr(publish, "execute", lambda acts, remote, log=print: (order.append("hostinger"),
+                                                                            real_execute(acts, remote, log)))
+    return order
+
+
+def test_all_deploys_the_worker_before_hostinger(tmp_path, build_dir, dist_dir, monkeypatch):
+    order = _all_env(tmp_path, build_dir, dist_dir, monkeypatch, "https://x.workers.dev")
+    monkeypatch.setattr(publish, "_publish_worker", lambda s, b, log: order.append("worker") or 0)
+    assert publish.main(["all"]) == 0
+    assert order[0] == "worker" and "hostinger" in order
+
+
+def test_all_without_worker_url_skips_the_worker(tmp_path, build_dir, dist_dir, monkeypatch):
+    _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
+    monkeypatch.setattr(publish, "_publish_worker", lambda *a: pytest.fail("worker touched"))
+    assert publish.main(["all"]) == 0
+
+
+def test_all_stops_before_hostinger_when_the_worker_check_fails(tmp_path, build_dir, dist_dir, monkeypatch):
+    order = _all_env(tmp_path, build_dir, dist_dir, monkeypatch, "https://x.workers.dev")
+    monkeypatch.setattr(publish, "_publish_worker", lambda s, b, log: 1)
+    assert publish.main(["all"]) == 1
+    assert "hostinger" not in order

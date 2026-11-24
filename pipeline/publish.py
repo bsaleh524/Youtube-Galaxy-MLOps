@@ -1,6 +1,11 @@
 """Lay out the site for Hostinger and write it to a remote (or to a local mirror).
 
     uv run python -m pipeline.publish galaxy|home|all [--to-dir DIR] [--data-only] [--version V] [--dry-run]
+    uv run python -m pipeline.publish worker [--version V] [--dry-run] [--stage-only]
+
+`worker` copies the build's index into worker/assets/, runs `npx wrangler deploy`, then waits for
+WORKER_URL/health to report the build version. `all` does that first whenever WORKER_URL is set,
+so the site never points at a Worker serving another version (and stops if the check fails).
 
 Hostinger tree (relative to the home dir, public_html/):
 
@@ -33,6 +38,10 @@ HOME_DIR = Path("web/home")
 ARTIFACTS_SUBDIR = Path("artifacts/galaxy")
 ALWAYS_GALAXY = frozenset({"manifest.json", "index.html", ".htaccess"})
 ALWAYS_HOME = frozenset({"index.html"})
+WORKER_DIR = Path("worker")
+WORKER_ASSETS = WORKER_DIR / "assets"
+WORKER_FILES = ("index.bin", "centroids.bin", "meta.bin", "index_manifest.json")
+DEPLOY_CMD = ["npx", "wrangler", "deploy"]
 
 
 # ---------------------------------------------------------------- layout
@@ -351,6 +360,69 @@ def verify(url: str, version: str, fetch: Callable[[str, dict], bytes] = _http_g
         return False
 
 
+# ---------------------------------------------------------------- Worker (chat)
+
+def stage_worker(build_dir: Path, assets_dir: Path) -> list[str]:
+    """Copy the build's four Worker index files into assets_dir (what wrangler bundles)."""
+    src = Path(build_dir) / "worker"
+    for name in WORKER_FILES:
+        if not (src / name).is_file():
+            raise FileNotFoundError(f"build {Path(build_dir).name} has no worker/{name}")
+    assets_dir = Path(assets_dir)
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    for name in WORKER_FILES:
+        shutil.copyfile(src / name, assets_dir / name)
+    return list(WORKER_FILES)
+
+
+def deploy_worker(worker_dir: Path, run=None) -> None:
+    """`npx wrangler deploy` in worker_dir (needs a one-time `npx wrangler login`)."""
+    import subprocess
+
+    run = run or (lambda cmd, cwd: subprocess.run(cmd, check=False, cwd=cwd))
+    if run(DEPLOY_CMD, worker_dir).returncode != 0:
+        raise RuntimeError("wrangler deploy failed (see its output above)")
+
+
+def verify_worker(url: str, version: str, fetch: Callable[[str, dict], bytes] = _http_get, tries: int = 6,
+                  wait: float = 5.0, sleep: Callable[[float], None] = time.sleep) -> bool:
+    """Poll <url>/health until it reports index_version == version (new deploys take a few seconds)."""
+    for attempt in range(tries):
+        try:
+            body = json.loads(fetch(f"{url.rstrip('/')}/health?t={int(time.time())}", {"User-Agent": USER_AGENT}))
+            if body.get("index_version") == version:
+                return True
+        except (OSError, ValueError):
+            pass
+        if attempt < tries - 1:
+            sleep(wait)
+    return False
+
+
+def _publish_worker(settings, build_dir: Path, log) -> int:
+    version = _version(build_dir)
+    try:
+        stage_worker(build_dir, WORKER_ASSETS)
+        deploy_worker(WORKER_DIR)
+    except (FileNotFoundError, RuntimeError) as err:
+        log(f"ERROR: {err}")
+        return 1
+    if not settings.worker_url:
+        log("Deployed. Set WORKER_URL in .env to the workers.dev URL wrangler printed, then run "
+            "`make build` and `make publish` to switch the chat panel on.")
+        return 0
+    if verify_worker(settings.worker_url, version):
+        log(f"worker: {settings.worker_url}/health reports {version}")
+        return 0
+    log(f"ERROR: {settings.worker_url}/health does not report {version}; not publishing the site")
+    return 1
+
+
+def _worker_plan(build_dir: Path) -> str:
+    lines = [f"stage {WORKER_ASSETS / name} <- {Path(build_dir) / 'worker' / name}" for name in WORKER_FILES]
+    return "\n".join([*lines, f"run   {' '.join(DEPLOY_CMD)}  (in {WORKER_DIR}/)", "check WORKER_URL/health"])
+
+
 # ---------------------------------------------------------------- CLI
 
 def _open(a, settings):
@@ -402,12 +474,13 @@ def main(argv: list[str] | None = None) -> int:
     from pipeline.config import load_settings
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("target", choices=["galaxy", "home", "all", "rollback"])
+    ap.add_argument("target", choices=["galaxy", "home", "all", "rollback", "worker"])
     ap.add_argument("version_arg", nargs="?", metavar="VERSION", help="for rollback: the version to switch to")
     ap.add_argument("--to-dir", type=Path, help="write to this local folder instead of Hostinger")
     ap.add_argument("--data-only", action="store_true", help="galaxy data + manifest only (no web/dist)")
     ap.add_argument("--version", help="build version to publish (default: newest in data/artifacts/galaxy)")
     ap.add_argument("--dry-run", action="store_true", help="print what would be written; write nothing")
+    ap.add_argument("--stage-only", action="store_true", help="worker: copy the index into worker/assets only")
     a = ap.parse_args(argv)
     log = lambda s: print(s, file=sys.stderr)
 
@@ -422,6 +495,25 @@ def main(argv: list[str] | None = None) -> int:
     if not (build_dir / "manifest.json").exists():
         ap.error(f"no build at {build_dir}")
     version = _version(build_dir)
+    if a.target == "worker":
+        if a.dry_run:
+            print(_worker_plan(build_dir))
+            return 0
+        if a.stage_only:
+            try:
+                stage_worker(build_dir, WORKER_ASSETS)
+            except FileNotFoundError as err:
+                log(f"ERROR: {err}")
+                return 1
+            log(f"staged build {version} into {WORKER_ASSETS}/")
+            return 0
+        return _publish_worker(settings, build_dir, log)
+    # Worker first: the site's chat panel must never point at a Worker serving another version.
+    if a.target == "all" and settings.worker_url and a.to_dir is None:
+        if a.dry_run:
+            print(_worker_plan(build_dir))
+        elif _publish_worker(settings, build_dir, log):
+            return 1
     with_galaxy = a.target in ("galaxy", "all")
     dist = DIST_DIR if with_galaxy and not a.data_only else None
     ctx, home_base, galaxy_base = _open(a, settings)

@@ -29,6 +29,7 @@ class Settings:
     hostinger_home_dir: str = "public_html"
     site_base_path: str = "/galaxy/"
     site_origin: str = "https://spookypharaoh.com"
+    worker_url: str | None = None  # https://galaxy-chat.<subdomain>.workers.dev, set after the first deploy
 
 
 # Settings field -> environment variable name. query_prefix is fixed, not configurable.
@@ -48,8 +49,10 @@ _ENV_NAMES = {
     "hostinger_home_dir": "HOSTINGER_HOME_DIR",
     "site_base_path": "SITE_BASE_PATH",
     "site_origin": "SITE_ORIGIN",
+    "worker_url": "WORKER_URL",
 }
-_CASTS = {"n_clusters": int, "mlflow_port": int, "hostinger_sftp_port": int, "data_dir": Path}
+_CASTS = {"n_clusters": int, "mlflow_port": int, "hostinger_sftp_port": int, "data_dir": Path,
+          "worker_url": lambda v: v.rstrip("/")}
 
 
 def _clean(value: str | None) -> str | None:

@@ -3,7 +3,7 @@
 
 .PHONY: help setup mlflow airflow web-dev web-build worker-dev worker-deploy test clean \
 	seed embed cluster recluster compare-k sanity naming-brief import-names build pipeline \
-	web-data stage preview publish-dry publish rollback
+	web-data stage preview publish-dry publish rollback publish-chat chat-dev
 
 PY := uv run python -m
 .DEFAULT_GOAL := help
@@ -61,8 +61,15 @@ preview:     ## stage, then serve the tree on :8080 (also reachable from a phone
 publish-dry: ## show exactly what a publish would upload (connects read-only)
 	$(PY) pipeline.publish all --dry-run
 
-publish:     ## upload home + galaxy to Hostinger (manifest last), verify, prune
+publish:     ## Worker first (if WORKER_URL is set), then home + galaxy to Hostinger (manifest last), verify, prune
 	$(PY) pipeline.publish all
+
+publish-chat: ## deploy only the Worker (chat) with the newest build's index, then check /health
+	$(PY) pipeline.publish worker
+
+chat-dev:    ## local Worker on :8787 with the newest build's index (Workers AI still runs remotely)
+	$(PY) pipeline.publish worker --stage-only
+	cd worker && npx wrangler dev --port 8787
 
 rollback:    ## point the live site at an older data version: make rollback VERSION=...
 	$(PY) pipeline.publish rollback $(VERSION)

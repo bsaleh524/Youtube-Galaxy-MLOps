@@ -183,3 +183,17 @@ def test_attribution_has_license_url(built):
     # fandom.com/licensing: "Creative Commons Attribution-Share Alike License 3.0 (Unported)" (owner, 2026-11-22)
     assert att["license"] == "CC BY-SA 3.0"
     assert att["license_url"] == "https://creativecommons.org/licenses/by-sa/3.0/"
+
+
+def test_manifest_has_no_chat_key_without_a_worker_url(built):
+    out, *_ = built
+    assert "chat" not in load(out, "manifest.json")
+
+
+def test_manifest_chat_url_and_topic_words(tmp_path, built):
+    _, records, X, model = built
+    out = build(records, X, model, {}, tmp_path / "chat", "20261118-000002-abcdef12",
+                chat_url="https://x.workers.dev", topic_words=["Minecraft", "Pokémon", "music"])
+    assert load(out, "manifest.json")["chat"] == {"url": "https://x.workers.dev/api/chat"}
+    # folded the way worker/src/names.ts foldName folds titles
+    assert load(out, "worker/index_manifest.json")["topic_words"] == ["minecraft", "music", "pokemon"]
