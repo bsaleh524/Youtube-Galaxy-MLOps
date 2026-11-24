@@ -176,6 +176,52 @@ The first run can reuse the 20,807-creator dataset already scraped in the siblin
 
 How creators are embedded and how each version scored: [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md). Naming clusters (one-shot with a chat assistant, or by hand): [docs/NAMING_CLUSTERS.md](docs/NAMING_CLUSTERS.md).
 
+## Rerunning things
+
+Common jobs after the first setup. Every recipe ends the same way:
+
+```bash
+make build      # write a new data version
+make preview    # optional: check it at http://localhost:8080/galaxy/ (Ctrl+C to stop)
+make publish    # upload; the live check at the end must report the new version
+```
+
+Nothing goes live until `make publish` finishes. If a publish looks wrong, `make rollback VERSION=<previous version>` puts the old map back. Versions are the folder names in `data/artifacts/galaxy/`.
+
+**Rename one or a few clusters.** Edit `data/cluster_names.json` (key → name; keys are in `data/model/galaxy/registry.json`), then build, preview, publish. A typo in the JSON stops the build with an error.
+
+**Name every placeholder cluster in one go** (e.g. after a re-cluster leaves new placeholders):
+
+```bash
+make naming-brief                                    # writes data/runs/<fit run>/naming_brief.md
+# upload naming_brief.md to a Claude Pro / Gemini Pro chat: "Follow the instructions in this file."
+# save the whole reply as a text file, e.g. data/naming/names_reply.txt
+make import-names FILE=data/naming/names_reply.txt DRY=1   # check: unknown keys, empty names, duplicates
+make import-names FILE=data/naming/names_reply.txt         # merge into data/cluster_names.json
+```
+
+`make naming-brief` only lists clusters that are still unnamed, so after a full import it says "Nothing to name". `import-names` keeps names you already set unless you add `FORCE=1`. Details: [docs/NAMING_CLUSTERS.md](docs/NAMING_CLUSTERS.md).
+
+**Weekly data refresh.** `make pipeline` re-embeds only changed creators, places them in the existing clusters (keys and names don't change), and builds. If nothing changed, it skips; use `FORCE=1` to rebuild anyway. Then preview and publish.
+
+**Re-cluster** (after a big data change or new embedding rules):
+
+```bash
+make embed        # only if the embedding text or model changed
+make sanity       # optional: score the embeddings (docs/EMBEDDINGS.md §3)
+make recluster    # K=120 by default; names carry over to clusters that barely moved
+make naming-brief # name any clusters that came out new
+```
+
+Then build, preview, publish. **Never use `FRESH=1` once `data/cluster_names.json` has names.** It renumbers every cluster, so your names would land on the wrong ones (docs/EMBEDDINGS.md §7). A plain `make recluster` matches new clusters to old ones by centre. Your name survives on any cluster that barely moved; a cluster that changed a lot gets a new key and a placeholder.
+
+**Files to keep safe.** These live in `data/`, which is not in git:
+- `data/cluster_names.json`: your names. Keep a copy somewhere.
+- `data/model/galaxy/`: the live model (`galaxy.prev` is the one before).
+- `data/raw/`: the creator snapshots.
+
+Chat replies like `names_reply.txt` belong under `data/` too, so they never get committed.
+
 ## Risks and things to verify early
 
 These are the assumptions the design leans on. **Phase 1 of the implementation prompt exists to test them before anything else is built.**
