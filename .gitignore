@@ -1,47 +1,38 @@
-# Terraform
-**/.terraform/
-*.tfstate
-*.tfstate.backup
-*.tfvars
-!*.tfvars.example
-.terraform.lock.hcl
-
 # Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-.venv/
+.venv*/
 venv/
 dist/
 build/
 *.egg
+.pytest_cache/
+.ruff_cache/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb_checkpoints
 
 # Environment / secrets
 .env
 .env.*
 !.env.example
 
-# Data (large files go in Oracle Object Storage, not git)
+# Local data, models, MLflow and Airflow state (never committed)
 data/
-*.parquet
-*.json.gz
-mlruns/
-weaviate_data/
-galaxy_feature_store/
 
-# macOS
+# Node
+node_modules/
+web/dist/
+web/.devdata/
+worker/.wrangler/
+worker/assets/*
+!worker/assets/.gitkeep
+
+# Agent scratch
+.superpowers/
+
+# macOS / editors
 .DS_Store
-
-# VS Code
 .vscode/
-
-# k3d / kubeconfig
-kubeconfig.yaml
-*.kubeconfig
-
-# Ollama model weights
-models/
+worker/.dev.vars

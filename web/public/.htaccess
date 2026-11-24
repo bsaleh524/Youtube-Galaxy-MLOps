@@ -1,0 +1,21 @@
+# YouTube Galaxy: cache and compression rules for the galaxy folder only (never the site root).
+# Everything except index.html and manifest.json lives at a versioned path (assets/<hash>.js,
+# data/<version>/...), so it can be cached for a year. index.html and manifest.json point at
+# the current versions, so browsers must always re-check them.
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|json|svg|png|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # Must come after the rule above: the later section wins for manifest.json.
+  <FilesMatch "^(index\.html|manifest\.json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+AddType application/json .json
+Options -Indexes

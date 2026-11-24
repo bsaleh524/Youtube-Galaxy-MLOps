@@ -1,0 +1,8 @@
+// Test-only config: serves worker/test/fixtures as the ASSETS binding.
+{
+  "name": "galaxy-chat-test",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-11-15",
+  "vars": { "ALLOWED_ORIGINS": "https://spookypharaoh.com" },
+  "assets": { "directory": "./test/fixtures", "binding": "ASSETS", "run_worker_first": true }
+}

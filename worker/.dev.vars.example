@@ -1,0 +1,2 @@
+# Copy to worker/.dev.vars for `make chat-dev`. It overrides wrangler.jsonc vars locally.
+ALLOWED_ORIGINS=https://spookypharaoh.com,http://localhost:5173,http://localhost:8080

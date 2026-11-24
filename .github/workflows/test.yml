@@ -1,0 +1,36 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Python (no torch)
+        run: |
+          uv sync --only-group ci
+          uv run --only-group ci pytest
+          uv run --only-group ci ruff check .
+      - name: Worker
+        working-directory: worker
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+      - name: Web
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: No large files in git (data stays local, issue #3)
+        run: |
+          big=$(git ls-files -z | xargs -0 du -k | awk '$1 > 1024 {print $2}')
+          if [ -n "$big" ]; then echo "tracked files over 1 MB:"; echo "$big"; exit 1; fi

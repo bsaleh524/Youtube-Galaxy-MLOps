@@ -2,7 +2,7 @@
 
 An explorable map of ~20,800 YouTube creators, grouped by how similar their wiki descriptions are, plus a chat box that answers questions about them. Hobby project, built to run for **$0/month**, with Airflow and MLflow doing the real MLOps work on a home machine.
 
-> **Status: re-plan complete, implementation pending.** The repo was originally a Kubernetes/Oracle Cloud stack (see [`archive/`](archive/)). It was simplified to the design below. This README describes the **target** state. To build it, hand [`docs/IMPLEMENTATION_PROMPT.md`](docs/IMPLEMENTATION_PROMPT.md) to a Claude Code instance. Commands marked *(planned)* don't exist yet.
+> **Status (2026-11-24): map and chat search are live** at spookypharaoh.com/galaxy/ (not announced yet). The chat answers in `search` mode; `ask` mode is not built (issue #8). Next: Plan 5 (eval, MLflow, quality gate). The repo was originally a Kubernetes/Oracle Cloud stack (see [`archive/`](archive/)). Commands marked *(planned)* don't exist yet.
 
 ---
 
@@ -104,8 +104,8 @@ Creators are referenced by stable id (e.g. `fandom_500338`), never by array posi
 
 One endpoint, two modes, built in this order:
 
-1. **`search`** (ship first): embed the question, return the closest creators. No LLM. Cheapest, most robust, and arguably the best part.
-2. **`ask`**: take the top ~8 results, put their bios in a prompt, and stream an LLM answer that cites the creators it used. The LLM only sees retrieved text, so it answers from your data, not from memory.
+1. **`search`** (live): embed the question, return the closest creators. "channels like X" uses X's own position instead. No LLM. Cheapest, most robust, and arguably the best part.
+2. **`ask`** (not built, issue #8; may need a budget): take the top ~8 results, put their bios in a prompt, and stream an LLM answer that cites the creators it used. The LLM only sees retrieved text, so it answers from your data, not from memory.
 
 Query embedding and the LLM both use **Workers AI**, so no API keys are needed. Groq is a supported alternative if you provide a key. Free-tier Workers AI hard-stops at its daily quota, so the chat degrades to a friendly "resting for today" message rather than a bill.
 
@@ -146,19 +146,83 @@ Claude Code can write the code. It cannot do these:
 ## Setup *(planned)*
 
 ```bash
-# prerequisites: python 3.11, uv, node 20+
+# prerequisites: python 3.11, uv, node 24+
 make setup            # uv sync, npm install in web/ and worker/, create the Airflow venv
 cp .env.example .env  # then fill in the values from the table above
 make mlflow           # local MLflow UI on :5000
 make airflow          # local Airflow on :8080
-make pipeline         # run scrape → … → gate once, without publishing
-make eval             # run the retrieval eval alone
-make web-dev          # local map with hot reload
-make worker-dev       # local Worker via wrangler
-make publish          # gated publish: SFTP + wrangler deploy
+make seed             # snapshot the 20,807-creator seed dataset (first run only)
+make embed            # embed new/changed creators (~3 min first time, seconds after)
+make recluster        # full re-fit (manual only; K=200 to override; FRESH=1 re-names from seed labels)
+make sanity           # score embeddings: 15 checks, name-lookalike rate, silhouette (EMB=dir OUT=file.md)
+make naming-brief     # one file for a chat assistant to name every placeholder cluster
+make import-names FILE=reply.txt  # merge the chat's JSON reply into data/cluster_names.json (DRY=1, FORCE=1)
+make compare-k        # compare cluster counts (KS=60,120,200) without touching the live model
+make build            # write data/artifacts/galaxy/<version>/
+make pipeline         # embed → cluster (assign) → build; skips if nothing changed (FORCE=1)
+make eval             # run the retrieval eval alone (planned)
+make web-data         # copy the newest build's data into web/.devdata (needed by web-dev)
+make web-dev          # local map with hot reload at http://localhost:5173/galaxy/
+make web-build        # build the site into web/dist
+make preview          # stage the exact Hostinger tree and serve it on :8080 (phone-friendly)
+make publish-dry      # show what a publish would upload (connects read-only)
+make publish          # Worker first (when WORKER_URL is set), then home page + map to Hostinger; see docs/DEPLOY.md
+make rollback VERSION=<version>  # point the live map at an older data version
+make chat-dev         # local chat Worker on :8787 with the newest build's index (see docs/DEPLOY.md)
+make publish-chat     # redeploy only the chat Worker, then check its /health
 ```
 
 The first run can reuse the 20,807-creator dataset already scraped in the sibling repo (`Controversy-Early-Warning-System/data/fandom/`). No re-crawl is needed to get started.
+
+How creators are embedded and how each version scored: [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md). Naming clusters (one-shot with a chat assistant, or by hand): [docs/NAMING_CLUSTERS.md](docs/NAMING_CLUSTERS.md).
+
+## Rerunning things
+
+Common jobs after the first setup. Every recipe ends the same way:
+
+```bash
+make build      # write a new data version
+make preview    # optional: check it at http://localhost:8080/galaxy/ (Ctrl+C to stop)
+make publish    # upload; the live check at the end must report the new version
+```
+
+Nothing goes live until `make publish` finishes. If a publish looks wrong, `make rollback VERSION=<previous version>` puts the old map back. Versions are the folder names in `data/artifacts/galaxy/`.
+
+**Rename one or a few clusters.** Edit `data/cluster_names.json` (key → name; keys are in `data/model/galaxy/registry.json`), then build, preview, publish. A typo in the JSON stops the build with an error.
+
+**Name every placeholder cluster in one go** (e.g. after a re-cluster leaves new placeholders):
+
+```bash
+make naming-brief                                    # writes data/runs/<fit run>/naming_brief.md
+# upload naming_brief.md to a Claude Pro / Gemini Pro chat: "Follow the instructions in this file."
+# save the whole reply as a text file, e.g. data/naming/names_reply.txt
+make import-names FILE=data/naming/names_reply.txt DRY=1   # check: unknown keys, empty names, duplicates
+make import-names FILE=data/naming/names_reply.txt         # merge into data/cluster_names.json
+```
+
+`make naming-brief` only lists clusters that are still unnamed, so after a full import it says "Nothing to name". `import-names` keeps names you already set unless you add `FORCE=1`. Details: [docs/NAMING_CLUSTERS.md](docs/NAMING_CLUSTERS.md).
+
+**The chat Worker follows the site.** Once `WORKER_URL` is in `.env`, every `make publish` redeploys the Worker with the same build first and checks it. If you roll the site back, also run `uv run python -m pipeline.publish worker --version <VERSION>` (docs/DEPLOY.md).
+
+**Weekly data refresh.** `make pipeline` re-embeds only changed creators, places them in the existing clusters (keys and names don't change), and builds. If nothing changed, it skips; use `FORCE=1` to rebuild anyway. Then preview and publish.
+
+**Re-cluster** (after a big data change or new embedding rules):
+
+```bash
+make embed        # only if the embedding text or model changed
+make sanity       # optional: score the embeddings (docs/EMBEDDINGS.md §3)
+make recluster    # K=120 by default; names carry over to clusters that barely moved
+make naming-brief # name any clusters that came out new
+```
+
+Then build, preview, publish. **Never use `FRESH=1` once `data/cluster_names.json` has names.** It renumbers every cluster, so your names would land on the wrong ones (docs/EMBEDDINGS.md §7). A plain `make recluster` matches new clusters to old ones by centre. Your name survives on any cluster that barely moved; a cluster that changed a lot gets a new key and a placeholder.
+
+**Files to keep safe.** These live in `data/`, which is not in git:
+- `data/cluster_names.json`: your names. Keep a copy somewhere.
+- `data/model/galaxy/`: the live model (`galaxy.prev` is the one before).
+- `data/raw/`: the creator snapshots.
+
+Chat replies like `names_reply.txt` belong under `data/` too, so they never get committed.
 
 ## Risks and things to verify early
 

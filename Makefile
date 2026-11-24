@@ -1,151 +1,110 @@
-COMPUTE_BACKEND ?= cpu
-LLM_BACKEND     ?= groq
-NAMESPACE_PIPELINE := galaxy-pipeline
-NAMESPACE_SERVING  := galaxy-serving
+# YouTube Galaxy — local commands. See README.md.
+# Still to come in later plans: Worker deploy, eval, gate (and a scraper/importer, issue #4).
 
-# ── Local cluster ─────────────────────────────────────────────────────────────
+.PHONY: help setup mlflow airflow web-dev web-build worker-dev worker-deploy test clean \
+	seed embed cluster recluster compare-k sanity naming-brief import-names build pipeline \
+	web-data stage preview publish-dry publish rollback publish-chat chat-dev
 
-.PHONY: cluster-up
-cluster-up:
-	@echo "Starting local k3d cluster (COMPUTE_BACKEND=$(COMPUTE_BACKEND))..."
-	k3d cluster create -c k3d-$(COMPUTE_BACKEND).yaml
-	@$(MAKE) cluster-namespaces
+PY := uv run python -m
+.DEFAULT_GOAL := help
 
-.PHONY: cluster-down
-cluster-down:
-	k3d cluster delete galaxy-local
+help:        ## list pipeline targets
+	@grep -E '^[a-z-]+: +##' $(MAKEFILE_LIST) | sed -E 's/: +## /\t/' | expand -t 12
 
-.PHONY: cluster-namespaces
-cluster-namespaces:
-	kubectl apply -f k8s/namespaces.yaml
+# --- Local pipeline (data stays in data/, never committed) ---
 
-# ── Local services (install via Helm) ─────────────────────────────────────────
+seed:        ## snapshot the seed dataset + seed cluster names
+	$(PY) pipeline.seed
 
-.PHONY: install-airflow
-install-airflow:
-	helm repo add apache-airflow https://airflow.apache.org --force-update
-	helm upgrade --install airflow apache-airflow/airflow \
-	  --namespace $(NAMESPACE_PIPELINE) \
-	  --values k8s/airflow/values.yaml \
-	  --set env[0].name=COMPUTE_BACKEND,env[0].value=$(COMPUTE_BACKEND) \
-	  --set env[1].name=LLM_BACKEND,env[1].value=$(LLM_BACKEND)
+embed:       ## embed new/changed creators (reuses cached vectors)
+	$(PY) pipeline.embed
 
-.PHONY: install-mlflow
-install-mlflow:
-	kubectl apply -f k8s/mlflow/ -n $(NAMESPACE_PIPELINE)
+cluster:     ## weekly: place creators into the existing clusters (assign mode)
+	$(PY) pipeline.cluster --mode assign
 
-.PHONY: install-weaviate
-install-weaviate:
-	helm repo add weaviate https://weaviate.github.io/weaviate-helm --force-update
-	helm upgrade --install weaviate weaviate/weaviate \
-	  --namespace $(NAMESPACE_SERVING) \
-	  --values k8s/weaviate/values.yaml
+recluster:   ## manual only, never scheduled: full re-fit (K=N, FRESH=1 to re-name from seed labels), then review names
+	$(PY) pipeline.cluster --mode fit $(if $(K),--k $(K)) $(if $(FRESH),--fresh-names)
 
-.PHONY: install-redis
-install-redis:
-	helm repo add bitnami https://charts.bitnami.com/bitnami --force-update
-	helm upgrade --install redis bitnami/redis \
-	  --namespace $(NAMESPACE_SERVING) \
-	  --values k8s/redis/values.yaml
+compare-k:   ## compare cluster counts without touching the live model (KS=60,120,200)
+	$(PY) pipeline.compare_k $(if $(KS),--ks $(KS))
 
-.PHONY: install-ollama
-install-ollama:
-ifeq ($(COMPUTE_BACKEND),gpu)
-	kubectl apply -f k8s/ollama/ -n $(NAMESPACE_SERVING)
-else
-	@echo "Skipping Ollama (COMPUTE_BACKEND=$(COMPUTE_BACKEND)) — use LLM_BACKEND=groq instead"
-endif
+sanity:      ## score embeddings: 15 checks, name-lookalike rate, silhouette (EMB=dir OUT=file.md)
+	$(PY) pipeline.sanity $(if $(EMB),--embeddings $(EMB)) $(if $(OUT),--out $(OUT))
 
-.PHONY: install-ingress
-install-ingress:
-	helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx --force-update
-	helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-	  --namespace kube-system \
-	  --values k8s/ingress/nginx-values.yaml
+naming-brief: ## one file for a chat assistant to name every placeholder cluster (docs/NAMING_CLUSTERS.md)
+	$(PY) pipeline.naming_brief brief $(if $(OUT),--out $(OUT))
 
-.PHONY: install-all-local
-install-all-local: install-mlflow install-weaviate install-redis install-ollama install-airflow
+import-names: ## merge a chat reply into data/cluster_names.json (FILE=reply.txt, FORCE=1, DRY=1)
+	$(PY) pipeline.naming_brief import $(FILE) $(if $(FORCE),--force) $(if $(DRY),--dry-run)
 
-# ── Oracle Cloud (production) ─────────────────────────────────────────────────
+build:       ## write data/artifacts/galaxy/<version>/ (site + Worker files)
+	$(PY) pipeline.build_artifacts
 
-.PHONY: infra-init
-infra-init:
-	terraform -chdir=infra init
+pipeline:    ## embed -> cluster -> build; skips if nothing changed (FORCE=1 to rebuild)
+	$(PY) pipeline.run $(if $(FORCE),--force)
 
-.PHONY: infra-plan
-infra-plan:
-	terraform -chdir=infra plan
+# --- Website ---
 
-.PHONY: infra-apply
-infra-apply:
-	terraform -chdir=infra apply
+web-data:    ## copy the newest build's site data into web/.devdata for make web-dev
+	$(PY) pipeline.publish galaxy --data-only --to-dir web/.devdata
 
-.PHONY: infra-destroy
-infra-destroy:
-	@read -p "Destroy ALL Oracle Cloud resources? [y/N] " c && [ "$$c" = "y" ]
-	terraform -chdir=infra destroy
+stage:       ## mirror the Hostinger tree into data/stage/public_html (needs make web-build)
+	$(PY) pipeline.publish all --to-dir data/stage/public_html
 
-# ── Data operations ───────────────────────────────────────────────────────────
+preview:     ## stage, then serve the tree on :8080 (also reachable from a phone on the same wifi)
+	$(MAKE) stage
+	@echo "Open http://localhost:8080/  (phone: http://$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1):8080/)"
+	python3 -m http.server 8080 --bind 0.0.0.0 -d data/stage/public_html
 
-.PHONY: load-weaviate
-load-weaviate:
-	python scripts/load_weaviate.py \
-	  --weaviate-url $${WEAVIATE_URL:-http://localhost:8080} \
-	  --parquet-path $${PARQUET_PATH:-data/starmap_data.parquet}
+# --- Publish to Hostinger (docs/DEPLOY.md). Never part of `make pipeline`. ---
 
-.PHONY: feast-materialize
-feast-materialize:
-	cd features && feast materialize-incremental $$(date -u +%Y-%m-%dT%H:%M:%S)
+publish-dry: ## show exactly what a publish would upload (connects read-only)
+	$(PY) pipeline.publish all --dry-run
 
-# ── Build & push containers ───────────────────────────────────────────────────
+publish:     ## Worker first (if WORKER_URL is set), then home + galaxy to Hostinger (manifest last), verify, prune
+	$(PY) pipeline.publish all
 
-REGISTRY ?= localhost:5000
+publish-chat: ## deploy only the Worker (chat) with the newest build's index, then check /health
+	$(PY) pipeline.publish worker
 
-.PHONY: build-training
-build-training:
-	docker build -t $(REGISTRY)/galaxy-training:latest training/
+chat-dev:    ## local Worker on :8787 with the newest build's index (Workers AI still runs remotely)
+	$(PY) pipeline.publish worker --stage-only
+	cd worker && npx wrangler dev --port 8787
 
-.PHONY: build-chatbot
-build-chatbot:
-	docker build -t $(REGISTRY)/galaxy-chatbot:latest serving/chatbot_api/
+rollback:    ## point the live site at an older data version: make rollback VERSION=...
+	$(PY) pipeline.publish rollback $(VERSION)
 
-.PHONY: build-embedding
-build-embedding:
-	docker build -t $(REGISTRY)/galaxy-embedding:latest serving/embedding_service/
+setup:
+	uv sync
+	cd web && npm install
+	cd worker && npm install
+	./scripts/setup_airflow.sh
 
-.PHONY: build-scraper
-build-scraper:
-	docker build -t $(REGISTRY)/galaxy-scraper:latest scrapers/
+mlflow:
+	./scripts/start_mlflow.sh
 
-.PHONY: build-frontend
-build-frontend:
-	docker build -t $(REGISTRY)/galaxy-frontend:latest frontend/
+airflow:
+	./scripts/start_airflow.sh
 
-.PHONY: build-all
-build-all: build-training build-chatbot build-embedding build-scraper build-frontend
+web-dev:
+	cd web && npm run dev
 
-# ── Airflow DAG testing ───────────────────────────────────────────────────────
+web-build:   ## build the galaxy site into web/dist (SITE_BASE_PATH, default /galaxy/)
+	cd web && SITE_BASE_PATH=$${SITE_BASE_PATH:-/galaxy/} npm run build
 
-.PHONY: dag-test-scrape
-dag-test-scrape:
-	kubectl exec -n $(NAMESPACE_PIPELINE) deploy/airflow-scheduler -- \
-	  airflow dags trigger fandom_scrape_dag
+worker-dev:
+	cd worker && npm run dev
 
-.PHONY: dag-test-train
-dag-test-train:
-	kubectl exec -n $(NAMESPACE_PIPELINE) deploy/airflow-scheduler -- \
-	  airflow dags trigger training_pipeline_dag
+worker-deploy:
+	cd worker && npm run deploy
 
-# ── Port-forwarding (local development) ──────────────────────────────────────
+test:
+	uv run pytest
+	uv run ruff check .
+	cd worker && npm test
+	cd web && npm test
 
-.PHONY: forward-airflow
-forward-airflow:
-	kubectl port-forward -n $(NAMESPACE_PIPELINE) svc/airflow-webserver 8080:8080
-
-.PHONY: forward-mlflow
-forward-mlflow:
-	kubectl port-forward -n $(NAMESPACE_PIPELINE) svc/mlflow 5000:5000
-
-.PHONY: forward-weaviate
-forward-weaviate:
-	kubectl port-forward -n $(NAMESPACE_SERVING) svc/weaviate 8081:80
+# Never touches data/ or .env.
+clean:
+	rm -rf web/dist worker/.wrangler .pytest_cache .ruff_cache
+	find . -name __pycache__ -type d -not -path "./.venv*" -prune -exec rm -rf {} +
