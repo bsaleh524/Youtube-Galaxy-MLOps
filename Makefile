@@ -2,7 +2,7 @@
 # Still to come in later plans: Worker deploy, eval, gate (and a scraper/importer, issue #4).
 
 .PHONY: help setup mlflow airflow web-dev web-build worker-dev worker-deploy test clean \
-	seed embed cluster recluster compare-k build pipeline \
+	seed embed cluster recluster compare-k sanity naming-brief import-names build pipeline \
 	web-data stage preview publish-dry publish rollback
 
 PY := uv run python -m
@@ -30,6 +30,12 @@ compare-k:   ## compare cluster counts without touching the live model (KS=60,12
 
 sanity:      ## score embeddings: 15 checks, name-lookalike rate, silhouette (EMB=dir OUT=file.md)
 	$(PY) pipeline.sanity $(if $(EMB),--embeddings $(EMB)) $(if $(OUT),--out $(OUT))
+
+naming-brief: ## one file for a chat assistant to name every placeholder cluster (docs/NAMING_CLUSTERS.md)
+	$(PY) pipeline.naming_brief brief $(if $(OUT),--out $(OUT))
+
+import-names: ## merge a chat reply into data/cluster_names.json (FILE=reply.txt, FORCE=1, DRY=1)
+	$(PY) pipeline.naming_brief import $(FILE) $(if $(FORCE),--force) $(if $(DRY),--dry-run)
 
 build:       ## write data/artifacts/galaxy/<version>/ (site + Worker files)
 	$(PY) pipeline.build_artifacts

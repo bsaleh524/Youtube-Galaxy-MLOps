@@ -155,6 +155,8 @@ make seed             # snapshot the 20,807-creator seed dataset (first run only
 make embed            # embed new/changed creators (~3 min first time, seconds after)
 make recluster        # full re-fit (manual only; K=200 to override; FRESH=1 re-names from seed labels)
 make sanity           # score embeddings: 15 checks, name-lookalike rate, silhouette (EMB=dir OUT=file.md)
+make naming-brief     # one file for a chat assistant to name every placeholder cluster
+make import-names FILE=reply.txt  # merge the chat's JSON reply into data/cluster_names.json (DRY=1, FORCE=1)
 make compare-k        # compare cluster counts (KS=60,120,200) without touching the live model
 make build            # write data/artifacts/galaxy/<version>/
 make pipeline         # embed → cluster (assign) → build; skips if nothing changed (FORCE=1)
@@ -172,7 +174,7 @@ make publish-chat     # Worker deploy + chat widget (planned, Plan 4); the eval 
 
 The first run can reuse the 20,807-creator dataset already scraped in the sibling repo (`Controversy-Early-Warning-System/data/fandom/`). No re-crawl is needed to get started.
 
-How creators are embedded and how each version scored: [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md). Naming clusters by hand: [docs/NAMING_CLUSTERS.md](docs/NAMING_CLUSTERS.md).
+How creators are embedded and how each version scored: [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md). Naming clusters (one-shot with a chat assistant, or by hand): [docs/NAMING_CLUSTERS.md](docs/NAMING_CLUSTERS.md).
 
 ## Risks and things to verify early
 
