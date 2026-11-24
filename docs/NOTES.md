@@ -309,3 +309,30 @@ What it shows:
 
 - `make publish` (owner's go): build `20261123-132733-640c47c5`, galaxy uploaded 126 / unchanged 6, live check passed, home 2 files, 52 s. Live manifest reports the new version and silhouette 0.0289; Kurzgesagt's panel shows "Science & History Education".
 - Write-ups: `docs/EMBEDDINGS.md` (method, experiments, scoring) and `docs/NAMING_CLUSTERS.md` (owner's guide to naming the 55 placeholders).
+
+## Plan 4 — chat search, local (2026-11-24)
+
+**Built:**
+- Worker `POST /api/chat` in search mode, with name lookup, CORS and rate limits. The spike routes are gone.
+- `publish worker`, which runs first in `publish all`.
+- The chat side panel.
+
+**Local bench (worker fixture, 600 rows):** `twoStageSearch` mean 0.60 ms, p99 0.72 ms.
+
+**Name-lookup design, from real data:**
+- Six common words are also creator titles: minecraft, gaming, music, roblox, sports and news. So titles equal to a topic word (in ≥5% of bios, 472 words) are never treated as names.
+- A 1% list would have blocked PewDiePie, MrBeast and Dream, so ambiguous names get a "search as a topic instead" button in the panel instead.
+
+**Local end to end (`make chat-dev`, real Workers AI):**
+
+| Question | Result |
+|---|---|
+| "science explainers" | Steve Mould, The Action Lab, … |
+| "channels like Markiplier" | similar to Markiplier |
+| "minecraft" | topic results |
+| "creators like Vsauce" | similar to Vsauce: Vsauce2, Curious Tangents, Deep Look, … |
+
+**Limits of search** (2026-11-24, owner question):
+- It can't rank ("most controversial") or answer relationship questions ("who hates Ludwig").
+- The panel hint says so.
+- Issue #7 tracks a "who mentions X" lookup.
