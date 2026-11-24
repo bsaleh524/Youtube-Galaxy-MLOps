@@ -8,5 +8,12 @@
   // index loads at isolate startup rather than inside a request. Limit: 64 MiB uncompressed.
   "rules": [{ "type": "Data", "globs": ["**/*.bin"], "fallthrough": false }],
   "ai": { "binding": "AI" },
+  // CORS allow-list (not secret). Local dev overrides it in worker/.dev.vars (see .dev.vars.example).
+  "vars": { "ALLOWED_ORIGINS": "https://spookypharaoh.com,https://www.spookypharaoh.com" },
+  // Free-plan Rate Limiting binding; counts are per Cloudflare location. Periods must be 10 or 60 s.
+  "ratelimits": [
+    { "name": "PER_IP", "namespace_id": "4101", "simple": { "limit": 10, "period": 60 } },
+    { "name": "GLOBAL", "namespace_id": "4102", "simple": { "limit": 300, "period": 60 } }
+  ],
   "observability": { "enabled": true }
 }

@@ -9,6 +9,7 @@ import {
   parseIndex,
   parseMeta,
 } from "./format";
+import { buildNameIndex } from "./names";
 
 export interface IndexManifest {
   version: string;
@@ -16,6 +17,7 @@ export interface IndexManifest {
   dim: number;
   k: number;
   model: string;
+  topic_words?: string[]; // folded words in >= 5% of bios; never treated as creator names
 }
 
 export interface LoadedIndex {
@@ -23,12 +25,13 @@ export interface LoadedIndex {
   index: IndexView;
   centroids: CentroidsView;
   meta: MetaView;
+  names: Map<string, number>; // folded title -> row (src/names.ts)
 }
 
 let cached: Promise<LoadedIndex> | null = null;
 
 // The four files must come from the same build; a mixed set would return wrong titles silently.
-export function validateLoaded(l: LoadedIndex): LoadedIndex {
+export function validateLoaded<T extends Omit<LoadedIndex, "names">>(l: T): T {
   const { manifest: m, index: i, centroids: c, meta } = l;
   const checks: [string, number, string, number][] = [
     ["manifest.n", m.n, "index.n", i.n],
@@ -59,12 +62,23 @@ async function load(env: Env): Promise<LoadedIndex> {
     asset(env, "centroids.bin").then((r) => r.arrayBuffer()),
     asset(env, "meta.bin").then((r) => r.arrayBuffer()),
   ]);
-  return validateLoaded({
+  return assemble(manifest, index, centroids, meta);
+}
+
+/** Parse, cross-check and add the name index. Shared by the test loader and src/main.ts. */
+export function assemble(
+  manifest: IndexManifest,
+  index: ArrayBuffer,
+  centroids: ArrayBuffer,
+  meta: ArrayBuffer,
+): LoadedIndex {
+  const parts = validateLoaded({
     manifest,
     index: parseIndex(index),
     centroids: parseCentroids(centroids),
     meta: parseMeta(meta),
   });
+  return { ...parts, names: buildNameIndex(parts.meta, new Set(manifest.topic_words ?? [])) };
 }
 
 export function getIndex(env: Env): Promise<LoadedIndex> {

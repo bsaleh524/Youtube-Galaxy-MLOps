@@ -1,86 +1,78 @@
+// Routes: GET /health, POST|OPTIONS /api/chat. The response contract is in
+// docs/superpowers/plans/2026-11-24-plan-4-chat-search.md (Global Constraints).
+import { AiQuotaError, aiEmbed, type Embed, searchChat } from "./chat";
 import type { Env } from "./env";
-import { readRecord } from "./format";
+import { allowedOrigin, corsHeaders, json, parseChatRequest, parseOrigins } from "./http";
 import type { LoadedIndex } from "./index_loader";
-import { twoStageSearchWithProbe } from "./search";
-
-const EMBED_MODEL = "@cf/baai/bge-small-en-v1.5";
-const QUERY_PREFIX = "Represent this sentence for searching relevant passages: ";
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-}
-
-// Deterministic PRNG so a seed always produces the same synthetic query.
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// Returns the top-10 records plus how many clusters and candidates the search looked at.
-function searchAndDescribe(loaded: LoadedIndex, query: Float32Array) {
-  const { index, centroids, meta } = loaded;
-  const { hits, probe } = twoStageSearchWithProbe(query, centroids, index, { k: 10 });
-  return {
-    hits: hits.map((h) => {
-      const r = readRecord(meta, h.row);
-      return { id: r.id, title: r.title, score: h.score };
-    }),
-    probed: probe.clusters.length,
-    candidates: probe.candidates,
-  };
-}
 
 type IndexSource = (env: Env) => Promise<LoadedIndex>;
 
-async function spikeSearch(url: URL, getIndex: IndexSource, env: Env): Promise<Response> {
-  const raw = url.searchParams.get("seed");
-  if (!raw || !/^\d+$/.test(raw)) return json({ error: "bad_request" }, 400);
-  const loaded = await getIndex(env);
-  const rand = mulberry32(Number(raw));
-  const query = Float32Array.from({ length: loaded.index.dim }, () => rand() * 2 - 1);
-  return json(searchAndDescribe(loaded, query));
+export interface HandlerDeps {
+  embed?: (env: Env) => Embed; // tests inject a fake; production uses Workers AI
 }
 
-async function spikeEmbedSearch(url: URL, getIndex: IndexSource, env: Env): Promise<Response> {
-  const text = (url.searchParams.get("q") ?? "").trim();
-  if (!text || text.length > 300) return json({ error: "bad_request" }, 400);
-  const [loaded, embedded] = await Promise.all([
-    getIndex(env),
-    env.AI.run(EMBED_MODEL, { text: [QUERY_PREFIX + text], pooling: "cls" }),
-  ]);
-  const data = (embedded as { data?: number[][] }).data;
-  if (!data?.[0]) return json({ error: "embed_failed" }, 502);
-  return json(searchAndDescribe(loaded, Float32Array.from(data[0])));
+async function underLimit(limiter: RateLimit | undefined, key: string): Promise<boolean> {
+  if (!limiter) return true;
+  try {
+    return (await limiter.limit({ key })).success;
+  } catch (err) {
+    console.error("rate limiter failed; allowing", err instanceof Error ? err.message : err);
+    return true;
+  }
+}
+
+async function chat(req: Request, env: Env, getIndex: IndexSource, makeEmbed: (env: Env) => Embed) {
+  const origin = allowedOrigin(req, parseOrigins(env.ALLOWED_ORIGINS));
+  if (req.method !== "POST" && req.method !== "OPTIONS") {
+    return json({ status: "method_not_allowed" }, 405, { Allow: "POST, OPTIONS" });
+  }
+  if (!origin) return json({ status: "forbidden" }, 403);
+  const cors = corsHeaders(origin);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+
+  const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (!(await underLimit(env.PER_IP, ip)) || !(await underLimit(env.GLOBAL, "all"))) {
+    return json({ status: "rate_limited", retry_after: 60 }, 429, { ...cors, "Retry-After": "60" });
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ status: "bad_request", error: "bad_json" }, 400, cors);
+  }
+  const parsed = parseChatRequest(body);
+  if (!parsed.ok) return json({ status: "bad_request", error: parsed.error }, 400, cors);
+  if (parsed.mode === "ask") return json({ status: "unavailable" }, 501, cors);
+
+  const forceTopic = (body as { force_topic?: unknown }).force_topic === true;
+  try {
+    const out = await searchChat(await getIndex(env), parsed.question, makeEmbed(env), forceTopic);
+    return json(out, 200, cors);
+  } catch (err) {
+    // Log the reason only, never the question.
+    console.error("chat search failed", err instanceof Error ? err.message : err);
+    if (err instanceof AiQuotaError) return json({ status: "resting" }, 503, cors);
+    return json({ status: "error" }, 502, cors);
+  }
 }
 
 // The routes are the same in every build; only where the index comes from differs
 // (bundled data modules in production, static assets in tests).
-export function createHandler(getIndex: IndexSource): ExportedHandler<Env> {
+export function createHandler(getIndex: IndexSource, deps: HandlerDeps = {}): ExportedHandler<Env> {
+  const makeEmbed = deps.embed ?? aiEmbed;
   return {
     async fetch(req: Request, env: Env): Promise<Response> {
       const url = new URL(req.url);
-      if (req.method === "GET") {
-        if (url.pathname === "/health") {
-          let version: string | null = null;
-          try {
-            version = (await getIndex(env)).manifest.version;
-          } catch {
-            version = null;
-          }
-          return json({ ok: true, index_version: version });
+      if (url.pathname === "/api/chat") return chat(req, env, getIndex, makeEmbed);
+      if (req.method === "GET" && url.pathname === "/health") {
+        let version: string | null = null;
+        try {
+          version = (await getIndex(env)).manifest.version;
+        } catch {
+          version = null;
         }
-        // Spike-only routes; removed in Plan 4.
-        if (url.pathname === "/spike/search") return spikeSearch(url, getIndex, env);
-        if (url.pathname === "/spike/embed-search") return spikeEmbedSearch(url, getIndex, env);
+        return json({ ok: true, index_version: version });
       }
       return json({ error: "not_found" }, 404);
     },

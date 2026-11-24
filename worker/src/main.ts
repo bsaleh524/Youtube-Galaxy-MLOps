@@ -7,17 +7,14 @@ import centroidsBin from "../assets/centroids.bin";
 import indexBin from "../assets/index.bin";
 import manifest from "../assets/index_manifest.json";
 import metaBin from "../assets/meta.bin";
-import { parseCentroids, parseIndex, parseMeta, readRecord } from "./format";
+import { readRecord } from "./format";
 import { createHandler } from "./handler";
-import { type IndexManifest, type LoadedIndex, validateLoaded } from "./index_loader";
+import { assemble, type IndexManifest, type LoadedIndex } from "./index_loader";
+import { findNamedCreator } from "./names";
 import { twoStageSearch } from "./search";
 
-const loaded: LoadedIndex = validateLoaded({
-  manifest: manifest as IndexManifest,
-  index: parseIndex(indexBin),
-  centroids: parseCentroids(centroidsBin),
-  meta: parseMeta(metaBin),
-});
+// The name index (~20k titles) is built here too, inside the startup budget.
+const loaded: LoadedIndex = assemble(manifest as IndexManifest, indexBin, centroidsBin, metaBin);
 
 // Warm-up: run a few searches now so V8 has optimised the hot loops before any request arrives.
 // Deterministic queries; results are discarded.
@@ -32,6 +29,7 @@ const loaded: LoadedIndex = validateLoaded({
     }
     const hits = twoStageSearch(q, loaded.centroids, loaded.index);
     if (hits.length) readRecord(loaded.meta, hits[0].row);
+    findNamedCreator("channels like warm up", loaded.names);
   }
 })(20);
 

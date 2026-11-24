@@ -16,3 +16,14 @@ describe("routing", () => {
     expect(await res.json()).toEqual({ error: "not_found" });
   });
 });
+
+describe("index cache", () => {
+  it("getIndex caches the loaded index per isolate", async () => {
+    const { env } = await import("cloudflare:workers");
+    const { getIndex } = await import("../src/index_loader");
+    const a = await getIndex(env as never);
+    const b = await getIndex(env as never);
+    expect(a).toBe(b);
+    expect(a.index.n).toBe(600);
+  });
+});

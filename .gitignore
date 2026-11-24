@@ -35,3 +35,4 @@ worker/assets/*
 # macOS / editors
 .DS_Store
 .vscode/
+worker/.dev.vars
