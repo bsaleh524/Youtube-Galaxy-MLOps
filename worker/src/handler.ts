@@ -4,6 +4,7 @@ import { AiQuotaError, aiEmbed, type Embed, searchChat } from "./chat";
 import type { Env } from "./env";
 import { allowedOrigin, corsHeaders, json, parseChatRequest, parseOrigins } from "./http";
 import type { LoadedIndex } from "./index_loader";
+import { WindowLimiter } from "./limiter";
 
 type IndexSource = (env: Env) => Promise<LoadedIndex>;
 
@@ -21,7 +22,13 @@ async function underLimit(limiter: RateLimit | undefined, key: string): Promise<
   }
 }
 
-async function chat(req: Request, env: Env, getIndex: IndexSource, makeEmbed: (env: Env) => Embed) {
+async function chat(
+  req: Request,
+  env: Env,
+  getIndex: IndexSource,
+  makeEmbed: (env: Env) => Embed,
+  local: WindowLimiter,
+) {
   const origin = allowedOrigin(req, parseOrigins(env.ALLOWED_ORIGINS));
   if (req.method !== "POST" && req.method !== "OPTIONS") {
     return json({ status: "method_not_allowed" }, 405, { Allow: "POST, OPTIONS" });
@@ -31,7 +38,7 @@ async function chat(req: Request, env: Env, getIndex: IndexSource, makeEmbed: (e
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
   const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
-  if (!(await underLimit(env.PER_IP, ip)) || !(await underLimit(env.GLOBAL, "all"))) {
+  if (!(await underLimit(env.PER_IP, ip)) || !(await underLimit(env.GLOBAL, "all")) || !local.allow(ip)) {
     return json({ status: "rate_limited", retry_after: 60 }, 429, { ...cors, "Retry-After": "60" });
   }
 
@@ -61,10 +68,11 @@ async function chat(req: Request, env: Env, getIndex: IndexSource, makeEmbed: (e
 // (bundled data modules in production, static assets in tests).
 export function createHandler(getIndex: IndexSource, deps: HandlerDeps = {}): ExportedHandler<Env> {
   const makeEmbed = deps.embed ?? aiEmbed;
+  const local = new WindowLimiter(10, 60_000); // same as PER_IP in wrangler.jsonc
   return {
     async fetch(req: Request, env: Env): Promise<Response> {
       const url = new URL(req.url);
-      if (url.pathname === "/api/chat") return chat(req, env, getIndex, makeEmbed);
+      if (url.pathname === "/api/chat") return chat(req, env, getIndex, makeEmbed, local);
       if (req.method === "GET" && url.pathname === "/health") {
         let version: string | null = null;
         try {

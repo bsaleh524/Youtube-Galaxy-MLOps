@@ -171,6 +171,14 @@ describe("POST /api/chat — errors", () => {
     }
   });
 
+  it("rate limits per IP inside the isolate when the binding lets everything through", async () => {
+    const { send } = await setup(); // the test env has no PER_IP/GLOBAL bindings
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++) statuses.push((await send({ body: { question: "x" } })).res.status);
+    expect(statuses.slice(0, 10).every((s) => s === 200)).toBe(true);
+    expect(statuses[10]).toBe(429);
+  });
+
   it("GET /api/chat is 405", async () => {
     const { send } = await setup();
     const { res } = await send({ method: "GET" });
