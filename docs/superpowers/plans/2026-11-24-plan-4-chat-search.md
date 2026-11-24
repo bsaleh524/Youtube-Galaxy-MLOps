@@ -295,6 +295,7 @@
     - `bad_request` `too_long`: "Keep it under 300 characters."
     - `unavailable`: "Answers are coming soon."
   - **Input rules:** submitting empty text doesn't call `ask`; the input has `maxlength="300"`.
+  - **Hint (owner addition, 2026-11-24):** before any question, the results region shows exactly `Try a topic (science explainers) or "channels like Vsauce". Search finds creators by what their wiki pages say; it can't rank creators or answer who likes whom.` The hint goes away once a question is asked.
   - **Overlapping questions:** a second question while the first is pending: only the latest result is shown (stale responses are ignored).
   - **Close:** the close button hides the panel, and `open()` shows it again with the last results intact.
 - [ ] **Step 2:** Run `cd web && npx vitest run test/chat.test.ts test/chat-panel.test.ts`. Expected: FAIL.
