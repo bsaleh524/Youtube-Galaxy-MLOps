@@ -1,7 +1,12 @@
 """Lay out the site for Hostinger and write it to a remote (or to a local mirror).
 
-    uv run python -m pipeline.publish galaxy|home|all [--to-dir DIR] [--data-only] [--version V] [--dry-run]
-    uv run python -m pipeline.publish worker [--version V] [--dry-run] [--stage-only]
+    uv run python -m pipeline.publish galaxy|home|all [--to-dir DIR] [--data-only] [--version V] [--dry-run] [--no-gate]
+    uv run python -m pipeline.publish worker [--version V] [--dry-run] [--stage-only] [--no-gate]
+
+Quality gate (Plan 5): publishing a build anywhere live (galaxy, all, worker) needs a passing
+data/runs/eval-<version>/gate.json newer than its report.json (`make eval`, `make gate`).
+`--no-gate` skips that with a warning. `--to-dir`, `home` and `rollback` never check it.
+After the new map is confirmed live, the build becomes the MLflow `champion`.
 
 `worker` copies the build's index into worker/assets/, runs `npx wrangler deploy`, then waits for
 WORKER_URL/health to report the build version. `all` does that first whenever WORKER_URL is set,
@@ -423,6 +428,56 @@ def _worker_plan(build_dir: Path) -> str:
     return "\n".join([*lines, f"run   {' '.join(DEPLOY_CMD)}  (in {WORKER_DIR}/)", "check WORKER_URL/health"])
 
 
+# ---------------------------------------------------------------- quality gate (Plan 5)
+
+def gate_ok(settings, version: str) -> tuple[bool, str]:
+    """Has `version` passed the quality gate, after its latest eval? (ok, plain-language reason)"""
+    d = Path(settings.data_dir) / "runs" / f"eval-{version}"
+    gate, report = d / "gate.json", d / "report.json"
+    if not gate.exists():
+        return False, f"build {version} has not been through the quality gate; run `make eval` then `make gate`"
+    result = json.loads(gate.read_text(encoding="utf-8"))
+    if result.get("version") != version:
+        return False, f"{gate} is for {result.get('version')}, not {version}; run `make gate`"
+    if report.exists() and report.stat().st_mtime > gate.stat().st_mtime:
+        return False, f"the gate result is older than the latest eval of {version}; run `make gate` again"
+    if not result.get("passed"):
+        failed = ", ".join(c["name"] for c in result.get("checks", []) if not c.get("passed")) or "?"
+        return False, f"build {version} failed the quality gate ({failed}); see {gate}"
+    return True, f"build {version}: gate passed"
+
+
+def set_champion(data_dir: Path, version: str) -> str | None:
+    from pipeline.tracking import set_champion as _set
+
+    return _set(data_dir, version)
+
+
+def _crown(settings, version: str, log) -> None:
+    """Mark the now-live build as the MLflow champion. Never fails the publish."""
+    try:
+        mv = set_champion(settings.data_dir, version)
+    except Exception as err:  # noqa: BLE001 - tracking trouble must not undo a good publish
+        log(f"WARNING: build {version} is live but could not be set as champion ({err}); "
+            f"run `make champion VERSION={version}`")
+        return
+    if mv is None:
+        log(f"WARNING: build {version} is live but has no eval run in MLflow, so it is not the champion; "
+            f"run `make eval` then `make champion VERSION={version}`")
+    else:
+        log(f"champion: build {version} (model version {mv})")
+
+
+def _check_gate(a, settings, version: str, log) -> bool:
+    """True when publishing may go on. Dry runs report the gate but never stop."""
+    if a.no_gate:
+        log(f"WARNING: --no-gate: publishing build {version} without checking the quality gate")
+        return True
+    ok, why = gate_ok(settings, version)
+    log(why if ok else f"{'WARNING' if a.dry_run else 'ERROR'}: {why}")
+    return ok or a.dry_run
+
+
 # ---------------------------------------------------------------- CLI
 
 def _open(a, settings):
@@ -481,6 +536,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--version", help="build version to publish (default: newest in data/artifacts/galaxy)")
     ap.add_argument("--dry-run", action="store_true", help="print what would be written; write nothing")
     ap.add_argument("--stage-only", action="store_true", help="worker: copy the index into worker/assets only")
+    ap.add_argument("--no-gate", action="store_true", help="publish even without a passing quality gate (warns)")
     a = ap.parse_args(argv)
     log = lambda s: print(s, file=sys.stderr)
 
@@ -495,6 +551,9 @@ def main(argv: list[str] | None = None) -> int:
     if not (build_dir / "manifest.json").exists():
         ap.error(f"no build at {build_dir}")
     version = _version(build_dir)
+    gated = a.to_dir is None and a.target in ("galaxy", "all", "worker") and not a.stage_only
+    if gated and not _check_gate(a, settings, version, log):
+        return 1
     if a.target == "worker":
         if a.dry_run:
             print(_worker_plan(build_dir))
@@ -543,6 +602,8 @@ def main(argv: list[str] | None = None) -> int:
             execute(galaxy_acts, remote, log=log)
             if _verify_live(a, settings, version, log):
                 return 1  # keep old versions and the old home page until the new map is confirmed live
+            if gated and not a.no_gate:
+                _crown(settings, version, log)
         execute(home_acts, remote, log=log)
         execute(prune(), remote, log=log)
     return 0

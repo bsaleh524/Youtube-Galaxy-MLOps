@@ -1,0 +1,106 @@
+{
+ "notes": "Shared by tests/test_name_lookup.py and worker/test/names.test.ts. Row = index into titles; null = no creator named. NFKD keeps ß, so 'strasse tv' does not match 'Straße TV'. Duplicate 'Vsauce' resolves to the lowest row. 'Minecraft' is a topic word.",
+ "titles": [
+  "Markiplier",
+  "Mark Rober",
+  "Vsauce",
+  "Minecraft",
+  "Café Crème",
+  "Straße TV",
+  "東海オンエア",
+  "😀 Emoji Guy",
+  "Vsauce",
+  "TJ",
+  "Dude Perfect",
+  "Game Theory"
+ ],
+ "topic_words": [
+  "minecraft"
+ ],
+ "cases": [
+  {
+   "question": "Markiplier",
+   "row": 0
+  },
+  {
+   "question": "channels like Markiplier",
+   "row": 0
+  },
+  {
+   "question": "similar to mark rober videos",
+   "row": 1
+  },
+  {
+   "question": "creators such as Vsauce",
+   "row": 2
+  },
+  {
+   "question": "alternatives to dude perfect please",
+   "row": 10
+  },
+  {
+   "question": "alternative to Game Theory",
+   "row": 11
+  },
+  {
+   "question": "resembling markiplier",
+   "row": 0
+  },
+  {
+   "question": "better than mark rober",
+   "row": 1
+  },
+  {
+   "question": "minecraft",
+   "row": null
+  },
+  {
+   "question": "like minecraft",
+   "row": null
+  },
+  {
+   "question": "cafe creme",
+   "row": 4
+  },
+  {
+   "question": "like Café Crème content",
+   "row": 4
+  },
+  {
+   "question": "strasse tv",
+   "row": null
+  },
+  {
+   "question": "like straße tv",
+   "row": 5
+  },
+  {
+   "question": "like 東海オンエア",
+   "row": 6
+  },
+  {
+   "question": "like emoji guy",
+   "row": 7
+  },
+  {
+   "question": "like tj",
+   "row": null
+  },
+  {
+   "question": "",
+   "row": null
+  },
+  {
+   "question": "   ",
+   "row": null
+  },
+  {
+   "question": "videos",
+   "row": null
+  },
+  {
+   "question": "mark rober is cool",
+   "row": null
+  }
+ ]
+}

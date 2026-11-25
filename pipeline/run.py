@@ -1,4 +1,4 @@
-"""Run the local pipeline once: embed → cluster (assign) → build. No eval/gate (Plan 5), no publish.
+"""Run the local pipeline once: embed → cluster (assign) → build → evaluate → gate. Never publishes.
 
     uv run python -m pipeline.run [--force]
 
@@ -47,6 +47,7 @@ def latest_build_inputs(artifacts: Path) -> dict | None:
 
 
 Step = tuple[str, Callable[[list[str]], int]]
+STEP_NAMES = ["embed", "cluster", "build", "evaluate", "gate"]
 
 
 def run(data_dir: Path, steps: list[Step], force: bool = False, log=print) -> dict:
@@ -69,14 +70,15 @@ def run(data_dir: Path, steps: list[Step], force: bool = False, log=print) -> di
 
 
 def main(argv: list[str] | None = None) -> int:
-    from pipeline import build_artifacts, cluster, embed
+    from pipeline import build_artifacts, cluster, embed, evaluate, gate
     from pipeline.config import load_settings
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--force", action="store_true", help="run even if nothing changed")
     a = ap.parse_args(argv)
     settings = load_settings()
-    steps = [("embed", embed.main), ("cluster", cluster.main), ("build", build_artifacts.main)]
+    fns = [embed.main, cluster.main, build_artifacts.main, evaluate.main, gate.main]
+    steps = list(zip(STEP_NAMES, fns, strict=True))  # a failing gate stops the run with exit 1
     log = lambda s: print(s, file=sys.stderr)
     summary = run(settings.data_dir, steps, force=a.force, log=log)
     print(json.dumps(summary))

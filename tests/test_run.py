@@ -61,3 +61,9 @@ def test_force_and_failing_step(tmp_path):
     assert run(tmp_path, steps(calls), force=True, log=lambda s: None)["skipped"] is False
     with pytest.raises(SystemExit, match="cluster failed"):
         run(tmp_path, [("embed", lambda a: 0), ("cluster", lambda a: 2)], force=True, log=lambda s: None)
+
+
+def test_run_steps_include_evaluate_and_gate():
+    from pipeline.run import STEP_NAMES
+
+    assert STEP_NAMES == ["embed", "cluster", "build", "evaluate", "gate"]
