@@ -11,138 +11,140 @@
 - question: science explainers
   expected: [Veritasium, "Kurzgesagt – In a Nutshell", Vsauce, Steve Mould, SmarterEveryDay]
   notes: Popular-science channels; the panel's own example query.
-  status: draft
+  status: approved
 - question: math videos
   expected: [3Blue1Brown, Numberphile, Minutephysics]
   notes: Maths explainers.
-  status: draft
+  status: approved
 - question: cooking recipes
   expected: [Joshua Weissman, Preppy Kitchen, Food Wishes, Nick DiGiovanni, Sorted Food]
   notes: Recipe channels.
-  status: draft
+  status: approved
 - question: minecraft speedruns
   expected: [Couriway, Feinberg, Dream]
   notes: Known Minecraft speedrunners.
-  status: draft
+  status: approved
 - question: true crime storytelling
   expected: [Bailey Sarian, Kendall Rae]
   notes: True-crime storytellers.
-  status: draft
+  status: approved
 - question: ASMR
   expected: [Gibi ASMR, ASMR Darling, Gentle Whispering ASMR]
   notes: One-word topic. Titles contain the word but names were stripped from embeddings (issue #5).
-  status: draft
+  status: approved
 - question: car reviews
   expected: [Doug DeMuro, Donut Media, Supercar Blondie, ChrisFix]
   notes: Car channels (ChrisFix is repair, not reviews; owner may drop it).
-  status: draft
+  status: approved
 - question: smartphone and tech reviews
   expected: [Marques Brownlee, Unbox Therapy, Mrwhosetheboss, Dave2D, Austin Evans]
   notes: Tech reviewers.
-  status: draft
+  status: approved
 - question: engineering builds and crazy inventions
   expected: [Mark Rober, Stuff Made Here, William Osman, Michael Reeves, Allen Pan, Simone Giertz]
   notes: Maker / engineering entertainment.
-  status: draft
+  status: approved
 - question: internet mysteries and iceberg videos
   expected: [Wendigoon, Nexpo, LEMMiNO]
   notes: Mystery / iceberg explainers.
-  status: draft
+  status: approved
 - question: channels for young kids
   expected: [Like Nastya, Vlad and Niki, "Ryan's World"]
   notes: Children's channels.
-  status: draft
+  status: approved
 - question: commentary and comedy videos about internet culture
   expected: [Drew Gooden, Danny Gonzalez, Kurtis Conner, Cody Ko, Penguinz0]
   notes: Commentary YouTubers.
-  status: draft
+  status: approved
 - question: hermitcraft redstone building
   expected: [Mumbo Jumbo, Grian, Iskall85]
   notes: Hermitcraft members (Hermitcraft itself has no page in the data).
-  status: draft
+  status: approved
 - question: lofi music to study to
   expected: [Lofi Girl]
   notes: Single obvious answer.
-  status: draft
+  status: approved
 
 # --- "Similar to" questions (name lookup: the creator's own vector is the query) ---
 - question: channels like Markiplier
   expected: [Jacksepticeye, CoryxKenshin, PewDiePie]
   notes: Let's-play personalities.
-  status: draft
+  status: approved
 - question: creators similar to Vsauce
   expected: [Vsauce2, Veritasium, Steve Mould, The Action Lab]
   notes: Science curiosity channels.
-  status: draft
+  status: approved
 - question: like Mark Rober
   expected: [Stuff Made Here, William Osman, Allen Pan, Michael Reeves]
   notes: Engineering YouTubers.
-  status: draft
+  status: approved
 - question: similar to Joshua Weissman
   expected: [Nick DiGiovanni, Babish Culinary Universe, Preppy Kitchen]
   notes: Personality-led cooking.
-  status: draft
+  status: approved
 - question: channels like Sidemen
   expected: [Miniminter, Vikkstar123, W2S, Zerkaa, Behzinga, TBJZL]
   notes: The Sidemen members should sit next to the group.
-  status: draft
+  status: approved
 - question: like Bailey Sarian
   expected: [Kendall Rae]
   notes: True crime.
-  status: draft
+  status: approved
 - question: creators like Marques Brownlee
   expected: [Dave2D, Mrwhosetheboss, Unbox Therapy, Linus Tech Tips, Austin Evans]
   notes: Tech reviewers.
-  status: draft
+  status: approved
 - question: like TheOdd1sOut
   expected: [Domics, Let Me Explain Studios, SomeThingElseYT, Alan Becker]
   notes: Animated storytime channels.
-  status: draft
+  status: approved
 - question: like Technoblade
   expected: [Dream, GeorgeNotFound, Sapnap, TommyInnit]
   notes: Minecraft personalities (Dream SMP).
-  status: draft
+  status: approved
 - question: alternatives to Pokimane
   expected: [Valkyrae, Ludwig, XQc]
   notes: Streamers.
-  status: draft
+  status: approved
 - question: like Drew Gooden
   expected: [Danny Gonzalez, Kurtis Conner, Eddy Burback]
   notes: Commentary.
-  status: draft
+  status: approved
 - question: like Wendigoon
   expected: [Nexpo, LEMMiNO]
   notes: Mystery / iceberg.
-  status: draft
+  status: approved
 
 # --- A name alone (whole question is a title) ---
 - question: Doug DeMuro
   expected: [Donut Media, Supercar Blondie, ChrisFix]
   notes: Name only, so it is answered as "similar to Doug DeMuro".
-  status: draft
+  status: approved
 - question: Gibi ASMR
   expected: [ASMR Darling, Gentle Whispering ASMR]
   notes: Name only.
-  status: draft
+  status: approved
 - question: Dude Perfect
   expected: [How Ridiculous]
   notes: Trick-shot channels.
-  status: draft
+  status: approved
 - question: Smosh
   expected: [Good Mythical Morning]
   notes: Sketch / comedy groups.
-  status: draft
+  status: approved
 
 # --- Tricky inputs ---
 - question: minecraft
   expected: [Dream, Technoblade, DanTDM, Mumbo Jumbo, Grian]
   notes: A creator is titled "Minecraft", but it is a topic word, so this must be a topic search.
-  status: draft
+  status: approved
 - question: Ninja
   expected: [Shroud, Pokimane, Valkyrae]
   notes: Ambiguous everyday word that is also a creator; answered as "similar to Ninja".
-  status: draft
-- question: videos like 3blue1brown please
-  expected: [Numberphile, Minutephysics]
+  status: approved
+# Custom
+
+- question: controversial channels
+  expected: [DramaAlert, Minutephysics]
   notes: Lower-case name, trailing filler words.
-  status: draft
+  status: approved
