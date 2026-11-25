@@ -70,6 +70,7 @@ button { cursor: pointer; }
 .legend-head { padding: 10px; border-bottom: 1px solid var(--line); }
 .legend-head label { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; color: var(--muted); }
 .legend-head input { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: #0d0d1c; }
+.legend-view { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .legend-list { overflow: auto; padding: 4px; }
 .legend-row {
   display: grid; grid-template-columns: 12px 1fr; column-gap: 8px; width: 100%; text-align: left;
@@ -81,6 +82,21 @@ button { cursor: pointer; }
 .legend-row .meta { font-size: 0.72rem; color: var(--muted); }
 
 .legend.closed { display: none; }
+/* `hidden` must win over the display rules above (the cluster filter relied on it). */
+.legend [hidden] { display: none; }
+.members-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.members-back {
+  flex: none; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--line);
+  background: #0d0d1c; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1;
+}
+.members-back:hover { background: #24244a; }
+.members-top .swatch { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+.members-title { font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-row {
+  display: block; width: 100%; text-align: left; padding: 5px 8px; border: 0; border-radius: 6px;
+  background: none; color: inherit; cursor: pointer; font-size: 0.85rem;
+}
+.member-row:hover { background: #24244a; }
 .detail {
   position: absolute; right: var(--gutter); top: var(--gutter); bottom: var(--gutter); width: 340px; z-index: 2;
   overflow: auto; padding: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);

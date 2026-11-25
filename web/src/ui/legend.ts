@@ -1,23 +1,50 @@
 import type { ClusterInfo } from "../data";
 
-/** Cluster list, biggest first, with a filter box. onPick gets the cluster's position in `clusters`. */
+/** What the member view needs: a cluster's creators (positions), their titles, and the callbacks. */
+export interface MemberSource {
+  membersOf: (c: number) => number[];
+  titleAt: (i: number) => string;
+  onPickCreator: (i: number) => void;
+  onBack: () => void;
+}
+
+export interface Legend {
+  /** Replace the cluster list with cluster c's creators (A–Z), under a back arrow. */
+  showMembers(c: number): void;
+  /** Back to the cluster list (its filter is kept). Doesn't call onBack. */
+  showClusters(): void;
+}
+
+/** Case- and accent-insensitive text for filtering ("Álvaro" → "alvaro"). */
+const fold = (s: string) => s.normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase();
+
+function filterBox(placeholder: string, onInput: (q: string) => void): HTMLInputElement {
+  const input = document.createElement("input");
+  input.type = "search";
+  input.placeholder = placeholder;
+  input.setAttribute("aria-label", placeholder);
+  input.addEventListener("input", () => onInput(fold(input.value.trim())));
+  return input;
+}
+
+/**
+ * Cluster list, biggest first, with a filter box. onPick gets the cluster's position in `clusters`.
+ * With `members`, the caller can swap the list for one cluster's creators (showMembers).
+ */
 export function renderLegend(
   el: HTMLElement,
   clusters: ClusterInfo[],
   titleOf: (id: string) => string | undefined,
   onPick: (c: number) => void,
-): void {
+  members?: MemberSource,
+): Legend {
   el.replaceChildren();
+  const clusterView = document.createElement("div");
+  clusterView.className = "legend-view";
   const head = document.createElement("div");
   head.className = "legend-head";
   const label = document.createElement("label");
   label.textContent = `${clusters.filter((c) => c.size > 0).length} clusters`;
-  const input = document.createElement("input");
-  input.type = "search";
-  input.placeholder = "Filter clusters";
-  input.setAttribute("aria-label", "Filter clusters");
-  label.append(input);
-  head.append(label);
 
   const list = document.createElement("div");
   list.className = "legend-list";
@@ -29,6 +56,7 @@ export function renderLegend(
     b.type = "button";
     b.className = "legend-row";
     b.dataset.key = c.key;
+    b.dataset.fold = fold(c.name);
     const sw = document.createElement("span");
     sw.className = "swatch";
     sw.style.background = c.colour;
@@ -44,10 +72,72 @@ export function renderLegend(
     return b;
   });
   list.append(...rows);
+  label.append(filterBox("Filter clusters", (q) => {
+    for (const r of rows) r.hidden = q !== "" && !r.dataset.fold!.includes(q);
+  }));
+  head.append(label);
+  clusterView.append(head, list);
 
-  input.addEventListener("input", () => {
-    const q = input.value.trim().toLowerCase();
-    for (const r of rows) r.hidden = q !== "" && !(r.querySelector(".name")!.textContent ?? "").toLowerCase().includes(q);
-  });
-  el.append(head, list);
+  const memberView = document.createElement("div");
+  memberView.className = "legend-view members";
+  memberView.hidden = true;
+  el.append(clusterView, memberView);
+
+  const showClusters = () => {
+    memberView.hidden = true;
+    memberView.replaceChildren();
+    clusterView.hidden = false;
+  };
+
+  const showMembers = (c: number) => {
+    if (!members) return;
+    const info = clusters[c];
+    const mhead = document.createElement("div");
+    mhead.className = "legend-head members-head";
+    const top = document.createElement("div");
+    top.className = "members-top";
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "members-back";
+    back.textContent = "←";
+    back.setAttribute("aria-label", "Back to clusters");
+    back.addEventListener("click", () => {
+      showClusters();
+      members.onBack();
+    });
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = info.colour;
+    const title = document.createElement("span");
+    title.className = "members-title";
+    title.textContent = info.name;
+    top.append(back, sw, title);
+
+    const ids = members.membersOf(c).map((i) => ({ i, title: members.titleAt(i), key: fold(members.titleAt(i)) }));
+    ids.sort((a, b) => a.key.localeCompare(b.key) || a.i - b.i);
+    const count = document.createElement("label");
+    count.textContent = `${ids.length} creators`;
+    const mlist = document.createElement("div");
+    mlist.className = "legend-list";
+    const mrows = ids.map(({ i, title: t, key }) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "member-row";
+      b.textContent = t;
+      b.dataset.fold = key;
+      b.addEventListener("click", () => members.onPickCreator(i));
+      return b;
+    });
+    mlist.append(...mrows);
+    count.append(filterBox("Filter creators", (q) => {
+      for (const r of mrows) r.hidden = q !== "" && !r.dataset.fold!.includes(q);
+    }));
+    mhead.append(top, count);
+    memberView.replaceChildren(mhead, mlist);
+    clusterView.hidden = true;
+    memberView.hidden = false;
+    mlist.scrollTop = 0;
+  };
+
+  return { showMembers, showClusters };
 }

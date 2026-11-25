@@ -51,6 +51,14 @@ Frees about 1.1 GB.
 rm -rf .superpowers/sdd/2026-11-24-plan-4-chat-search
 ```
 
+### Plan 5 ledger (added 2026-11-24)
+
+`.superpowers/sdd/2026-11-24-plan-5-eval-gate/`: the plan's progress ledger (git-ignored). Plan 5 is merged (PR #12); its rulings are in the PR summary and `docs/NOTES.md`. A few KB.
+
+```bash
+rm -rf .superpowers/sdd/2026-11-24-plan-5-eval-gate
+```
+
 ## Done
 
 _(nothing yet)_
