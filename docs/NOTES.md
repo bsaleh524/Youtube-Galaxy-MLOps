@@ -370,3 +370,31 @@ What it shows:
 - So the cost is cold isolates or caches, not our code. There were 0 errors in about 200 requests.
 - Client latency: p50 174 ms, p95 433 ms.
 
+
+## Plan 5 — eval set, MLflow, quality gate (2026-11-24)
+
+**Baseline** on the live build `20261124-053913-640c47c5`, 33 owner-approved questions (`eval/questions.yaml`):
+
+| Measure | Value |
+|---|---|
+| silhouette (int8 vectors, 10k sample) | 0.0292 |
+| agreement with brute force (top 8) | 0.780 |
+| recall@8 | 0.186 |
+| MRR | 0.239 |
+
+- The Python mirror of the Worker search returns exactly what the live chat returns (checked for Markiplier, Vsauce, "science explainers").
+- Clear misses: "ASMR" (high-heels and charity channels), "like Technoblade" (no Dream SMP), "like TheOdd1sOut" (no other animators). Many other misses are plausible lesser-known channels.
+- Owner approved all drafted questions and replaced "videos like 3blue1brown please" with "controversial channels".
+- Owner accepted the proposed thresholds: silhouette ≥ 0.024, agreement ≥ 0.70, recall tolerance 0.05, creators ≥ 90%.
+- The live build is the first MLflow champion (`galaxy` model version 1).
+
+**Search shortcut trade-off** (agreement on the 33 questions / on 300 random creators):
+
+| Creators scanned (min_candidates/max_probe) | Eval questions | 300 creators |
+|---|---|---|
+| ~1,600 (1500/12, live) | 0.79 | 0.86 |
+| ~3,100 (3000/20) | 0.88 | 0.92 |
+| ~5,100 (5000/30) | 0.92 | 0.96 |
+| ~8,100 (8000/48) | 0.96 | 0.98 |
+
+Not changed: scanning more costs Worker CPU, already over the free limit on cold requests (issue #1).
