@@ -9,7 +9,7 @@ import { makeSearch } from "./search";
 import { mountChatPanel } from "./ui/chat-panel";
 import { renderDetail } from "./ui/detail";
 import { renderFooter } from "./ui/footer";
-import { renderLegend } from "./ui/legend";
+import { renderLegend, type Legend } from "./ui/legend";
 import { mountSearchBox } from "./ui/search-box";
 import { loadSettings, mountToggles, type Settings } from "./ui/toggles";
 
@@ -24,6 +24,7 @@ export interface App {
   selected: number | null;
   cluster: number | null;
   settings: Settings;
+  legend: Legend | null;
 }
 
 function showTooltip(g: Galaxy, i: number | null, x: number, y: number) {
@@ -107,6 +108,7 @@ export function selectCluster(app: App, c: number) {
   app.map.setFocus({ cluster: c });
   app.map.setLinks(null, []);
   showDetail(app, null);
+  app.legend?.showMembers(c);
   const mode3d = app.settings.mode === "3d";
   const centre = mode3d ? [info.cx3, info.cy3, info.cz3] : [info.cx2, info.cy2, 0];
   if (centre.every((v) => v !== null)) app.map.flyToPoint(centre as number[]);
@@ -119,6 +121,7 @@ export function clearSelection(app: App) {
   app.map.setFocus(null);
   app.map.setLinks(null, []);
   showDetail(app, null);
+  app.legend?.showClusters();
   setHash({});
 }
 
@@ -198,7 +201,7 @@ async function start() {
   status.textContent = "";
   renderFooter($("footer"), manifest);
   const settings = loadSettings();
-  const app = { g, manifest, neighbours: null, selected: null, cluster: null, settings } as unknown as App;
+  const app = { g, manifest, neighbours: null, selected: null, cluster: null, settings, legend: null } as unknown as App;
   app.loader = createLoader(fetch, BASE, manifest.version);
   app.map = createMap($<HTMLDivElement>("map"), g, {
     onHover: (i, x, y) => showTooltip(g, i, x, y),
@@ -210,7 +213,19 @@ async function start() {
     const i = g.index.get(id);
     return i === undefined ? undefined : g.titles[i];
   };
-  renderLegend($("legend"), g.clusters, titleOf, (c) => selectCluster(app, c));
+  let byCluster: number[][] | null = null; // creator positions per cluster, built on first use
+  app.legend = renderLegend($("legend"), g.clusters, titleOf, (c) => selectCluster(app, c), {
+    membersOf: (c) => {
+      if (!byCluster) {
+        byCluster = g.clusters.map(() => []);
+        g.cluster.forEach((k, i) => byCluster![k]?.push(i));
+      }
+      return byCluster[c] ?? [];
+    },
+    titleAt: (i) => g.titles[i],
+    onPickCreator: (i) => selectCreator(app, i),
+    onBack: () => clearSelection(app),
+  });
 
   const applySettings = (s: Settings) => {
     app.settings = s;
