@@ -1,8 +1,9 @@
 # YouTube Galaxy — local commands. See README.md.
-# Still to come in later plans: Worker deploy, eval, gate (and a scraper/importer, issue #4).
+# Flow: pipeline (embed -> cluster -> build -> eval -> gate) -> publish (refuses without a passing gate).
+# Still to come: a scraper/importer (issue #4).
 
 .PHONY: help setup mlflow airflow web-dev web-build worker-dev worker-deploy test clean \
-	seed embed cluster recluster compare-k sanity naming-brief import-names build eval gate pipeline \
+	seed embed cluster recluster compare-k sanity naming-brief import-names build eval gate champion pipeline \
 	web-data stage preview publish-dry publish rollback publish-chat chat-dev
 
 PY := uv run python -m
@@ -46,7 +47,11 @@ eval:        ## score the newest build on eval/questions.yaml, log to MLflow (BU
 gate:        ## pass/fail the newest build's eval report against eval/gate.yaml and the live build (VERSION=v)
 	$(PY) pipeline.gate $(if $(VERSION),--version $(VERSION))
 
-pipeline:    ## embed -> cluster -> build; skips if nothing changed (FORCE=1 to rebuild)
+champion:    ## mark an already-live, evaluated build as the MLflow champion (VERSION=v, required)
+	$(if $(VERSION),,$(error VERSION is required, e.g. make champion VERSION=20261124-053913-640c47c5))
+	$(PY) pipeline.tracking champion --version $(VERSION)
+
+pipeline:    ## embed -> cluster -> build -> eval -> gate; skips if nothing changed (FORCE=1 to rebuild)
 	$(PY) pipeline.run $(if $(FORCE),--force)
 
 # --- Website ---
