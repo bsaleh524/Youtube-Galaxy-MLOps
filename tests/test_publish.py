@@ -292,7 +292,7 @@ def test_sftp_publish_needs_credentials(tmp_path, build_dir, dist_dir, monkeypat
     for k in ["HOSTINGER_SFTP_HOST", "HOSTINGER_SFTP_USER", "HOSTINGER_SFTP_PASSWORD", "HOSTINGER_SFTP_KEY_PATH"]:
         monkeypatch.setenv(k, "")
     with pytest.raises(SystemExit, match="HOSTINGER_SFTP_HOST"):
-        publish.main(["galaxy"])
+        publish.main(["galaxy", "--no-gate"])
 
 
 def test_verify():
@@ -491,14 +491,14 @@ def _all_env(tmp_path, build_dir, dist_dir, monkeypatch, worker_url):
 def test_all_deploys_the_worker_before_hostinger(tmp_path, build_dir, dist_dir, monkeypatch):
     order = _all_env(tmp_path, build_dir, dist_dir, monkeypatch, "https://x.workers.dev")
     monkeypatch.setattr(publish, "_publish_worker", lambda s, b, log: order.append("worker") or 0)
-    assert publish.main(["all"]) == 0
+    assert publish.main(["all", "--no-gate"]) == 0
     assert order[0] == "worker" and "hostinger" in order
 
 
 def test_all_without_worker_url_skips_the_worker(tmp_path, build_dir, dist_dir, monkeypatch):
     _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
     monkeypatch.setattr(publish, "_publish_worker", lambda *a: pytest.fail("worker touched"))
-    assert publish.main(["all"]) == 0
+    assert publish.main(["all", "--no-gate"]) == 0
 
 
 def test_all_stops_before_hostinger_when_the_worker_check_fails(tmp_path, build_dir, dist_dir, monkeypatch):
@@ -506,3 +506,105 @@ def test_all_stops_before_hostinger_when_the_worker_check_fails(tmp_path, build_
     monkeypatch.setattr(publish, "_publish_worker", lambda s, b, log: 1)
     assert publish.main(["all"]) == 1
     assert "hostinger" not in order
+
+
+# ---------------------------------------------------------------- Plan 5: quality gate + champion
+
+def _gate(tmp_path, passed=True, version=V):
+    d = tmp_path / "runs" / f"eval-{V}"
+    _write(d / "report.json", json.dumps({"version": version}))
+    _write(d / "gate.json", json.dumps({"version": version, "passed": passed, "checks": []}))
+    return d
+
+
+def _champions(monkeypatch, result="3"):
+    calls = []
+
+    def fake(data_dir, version):
+        calls.append(version)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(publish, "set_champion", fake)
+    return calls
+
+
+def test_publish_all_refuses_without_gate(tmp_path, build_dir, dist_dir, monkeypatch, capsys):
+    order = _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
+    assert publish.main(["all"]) == 1
+    assert order == [] and "make gate" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("problem", ["failed", "stale"])
+def test_publish_all_refuses_stale_or_failed_gate(tmp_path, build_dir, dist_dir, monkeypatch, capsys, problem):
+    order = _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
+    d = _gate(tmp_path, passed=problem != "failed")
+    if problem == "stale":  # the build was re-evaluated after the gate ran
+        import os
+        g = d / "gate.json"
+        os.utime(g, (g.stat().st_mtime - 60,) * 2)
+    assert publish.main(["all"]) == 1
+    assert order == []
+    err = capsys.readouterr().err
+    assert ("failed" in err) if problem == "failed" else ("older than" in err)
+
+
+def test_publish_all_no_gate_flag_warns_and_continues(tmp_path, build_dir, dist_dir, monkeypatch, capsys):
+    order = _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
+    calls = _champions(monkeypatch)
+    assert publish.main(["all", "--no-gate"]) == 0
+    assert "hostinger" in order and "WARNING" in capsys.readouterr().err
+    assert calls == []  # an ungated build never becomes the champion
+
+
+def test_to_dir_and_rollback_skip_gate(tmp_path, build_dir, dist_dir, monkeypatch):
+    monkeypatch.setattr(publish, "DIST_DIR", dist_dir)
+    home = tmp_path / "home"
+    _write(home / "index.html", "home")
+    monkeypatch.setattr(publish, "HOME_DIR", home)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    calls = _champions(monkeypatch)
+    assert publish.main(["all", "--to-dir", str(tmp_path / "stage")]) == 0
+    root = _remote_with_versions(tmp_path, [V], live=V)
+    assert publish.main(["rollback", V, "--to-dir", str(root)]) == 0
+    assert calls == []
+
+
+def test_champion_set_after_verified_publish(tmp_path, build_dir, dist_dir, monkeypatch):
+    _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
+    _gate(tmp_path)
+    calls = _champions(monkeypatch)
+    assert publish.main(["all"]) == 0
+    assert calls == [V]
+
+
+def test_champion_not_set_when_live_check_fails(tmp_path, build_dir, dist_dir, monkeypatch):
+    _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
+    _gate(tmp_path)
+    monkeypatch.setattr(publish, "verify", lambda url, version: False)
+    calls = _champions(monkeypatch)
+    assert publish.main(["all"]) == 1
+    assert calls == []
+
+
+@pytest.mark.parametrize("result", [None, RuntimeError("mlflow down")])
+def test_champion_failure_only_warns(tmp_path, build_dir, dist_dir, monkeypatch, capsys, result):
+    _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
+    _gate(tmp_path)
+    _champions(monkeypatch, result)
+    assert publish.main(["all"]) == 0
+    assert "WARNING" in capsys.readouterr().err
+
+
+def test_dry_run_reports_gate(tmp_path, build_dir, dist_dir, monkeypatch, capsys):
+    _all_env(tmp_path, build_dir, dist_dir, monkeypatch, None)
+    _gate(tmp_path)
+    assert publish.main(["all", "--dry-run"]) == 0
+    assert "gate passed" in capsys.readouterr().err
+
+
+def test_worker_deploy_is_gated(tmp_path, build_dir, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(publish, "_publish_worker", lambda *a: pytest.fail("deployed without a gate"))
+    assert publish.main(["worker"]) == 1

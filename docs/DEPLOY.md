@@ -53,14 +53,18 @@ public_html/                    your site root: only index.html and home.css are
 ## Each publish
 
 ```bash
-make pipeline          # (or make build) newest data in data/artifacts/galaxy/
+make pipeline          # newest data in data/artifacts/galaxy/, then eval + gate (stops if the gate fails)
 make web-build         # the map's code into web/dist
 make preview           # look at it locally: http://localhost:8080/ (and the phone address it prints)
 make publish-dry       # connects read-only and lists every file it would upload, plus any warnings
 make publish           # uploads, then checks https://spookypharaoh.com/galaxy/manifest.json
 ```
 
-`make publish` ends with `live: … reports <version>` when the check passes.
+`make publish` ends with `live: … reports <version>` when the check passes, then `champion: build <version>`.
+
+**Quality gate.** `make publish` and `make publish-chat` first check `data/runs/eval-<version>/gate.json`. With no gate result, a failed one, or one older than the latest `make eval`, they stop with `ERROR: …` and upload nothing. Fix: `make eval` then `make gate` (see README § Quality gate). To publish anyway, run `uv run python -m pipeline.publish all --no-gate`; it warns, and the build does not become the MLflow champion. `make publish-dry` shows the gate result but never stops. Rollbacks and `--to-dir` staging skip the gate.
+
+**Champion.** Once the new map is confirmed live, the build becomes the MLflow `champion` (the build the next one is compared with). If that step fails it only warns; fix it with `make champion VERSION=<version>`. After a rollback, run `make champion VERSION=<the version you rolled back to>` so the next gate compares against what is really live.
 
 **To check it yourself:**
 - open https://spookypharaoh.com/ and https://spookypharaoh.com/galaxy/;

@@ -31,11 +31,18 @@ export function foldName(s: string): string {
  * e.g. "minecraft", "music") are left out, so "minecraft" stays a topic search.
  */
 export function buildNameIndex(meta: MetaView, topicWords: Set<string> = new Set()): Map<string, number> {
+  const titles: string[] = [];
+  for (let row = 0; row < meta.n; row++) titles.push(readRecord(meta, row).title);
+  return nameIndexFromTitles(titles, topicWords);
+}
+
+/** The same index from a plain title list (row = position). Shared fixture: test/fixtures/name_cases.json. */
+export function nameIndexFromTitles(titles: string[], topicWords: Set<string> = new Set()): Map<string, number> {
   const out = new Map<string, number>();
-  for (let row = 0; row < meta.n; row++) {
-    const key = foldName(readRecord(meta, row).title);
+  titles.forEach((title, row) => {
+    const key = foldName(title);
     if (key.length >= MIN_TITLE && !topicWords.has(key) && !out.has(key)) out.set(key, row);
-  }
+  });
   return out;
 }
 

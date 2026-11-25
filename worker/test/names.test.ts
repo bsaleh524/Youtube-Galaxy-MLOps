@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type IndexView, type MetaView, parseMeta } from "../src/format";
-import { buildNameIndex, creatorVector, findNamedCreator, foldName } from "../src/names";
+import { buildNameIndex, creatorVector, findNamedCreator, foldName, nameIndexFromTitles } from "../src/names";
+import { fixtureJson } from "./helpers";
 
 /** Encode records in the meta.bin layout parseMeta reads: magic, u32 n, (n+1) u32 offsets, blob. */
 function makeMeta(titles: string[]): MetaView {
@@ -104,5 +105,14 @@ describe("topic words", () => {
   });
   it("still finds other names", () => {
     expect(findNamedCreator("channels like Markiplier", withTopics)).toBe(row("Markiplier"));
+  });
+
+  it("matches the shared Python fixture (name_cases.json)", async () => {
+    const d = await fixtureJson<{ titles: string[]; topic_words: string[]; cases: { question: string; row: number | null }[] }>(
+      "name_cases.json",
+    );
+    const names = nameIndexFromTitles(d.titles, new Set(d.topic_words));
+    const got = d.cases.map((c) => [c.question, findNamedCreator(c.question, names)]);
+    expect(got).toEqual(d.cases.map((c) => [c.question, c.row]));
   });
 });

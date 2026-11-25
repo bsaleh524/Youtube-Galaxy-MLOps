@@ -2,7 +2,7 @@
 
 An explorable map of ~20,800 YouTube creators, grouped by how similar their wiki descriptions are, plus a chat box that answers questions about them. Hobby project, built to run for **$0/month**, with Airflow and MLflow doing the real MLOps work on a home machine.
 
-> **Status (2026-11-24): map and chat search are live** at spookypharaoh.com/galaxy/ (not announced yet). The chat answers in `search` mode; `ask` mode is not built (issue #8). Next: Plan 5 (eval, MLflow, quality gate). The repo was originally a Kubernetes/Oracle Cloud stack (see [`archive/`](archive/)). Commands marked *(planned)* don't exist yet.
+> **Status (2026-11-24): map and chat search are live** at spookypharaoh.com/galaxy/ (not announced yet). The chat answers in `search` mode; `ask` mode is not built (issue #8). Plan 5 (eval set, MLflow tracking, quality gate before publish) is built; see [Quality gate](#quality-gate). The repo was originally a Kubernetes/Oracle Cloud stack (see [`archive/`](archive/)). Commands marked *(planned)* don't exist yet.
 
 ---
 
@@ -111,12 +111,26 @@ Query embedding and the LLM both use **Workers AI**, so no API keys are needed. 
 
 ## Quality gate
 
-A refresh is published only if all of these hold. The point is that a bad scrape or a bad run never reaches the live site.
+A refresh is published only if all four checks pass, so a bad scrape or a bad run never reaches the live site. Thresholds live in [`eval/gate.yaml`](eval/gate.yaml); they were set from a baseline run of the live build `20261124-053913-640c47c5` (2026-11-24).
 
-- Silhouette is above a floor **measured from a baseline run**, not a guess. The old 0.40 threshold was never validated and is probably unreachable for 120 text clusters.
-- Retrieval **recall@8 on the eval set** has not regressed beyond a tolerance.
-- Creator count is at least ~90% of the last published run (guards against partial scrapes).
-- The two-stage search agrees with exact brute force on the eval set (measures what the speed shortcut costs).
+| Check | What it measures | Baseline | Must be |
+|---|---|---|---|
+| **Silhouette** | How cleanly creators separate into clusters (−1…1, on the published int8 vectors). Text clusters sit near 0.03. | 0.029 | ≥ 0.024 |
+| **Recall@8** | On the approved questions in [`eval/questions.yaml`](eval/questions.yaml): the share of expected creators that appear in the top 8 answers. | 0.186 | no more than 0.05 below the live build's |
+| **Creators** | How many creators the build has (guards against partial scrapes). | 20,807 | ≥ 90% of the live build's |
+| **Agreement** | Share of the exact (brute-force) top 8 that the fast two-stage search still finds. | 0.78 | ≥ 0.70 |
+
+MRR (how high the first expected creator ranks) is recorded too but not gated. The recall comparison is skipped when the questions file changed since the live build was scored (re-run `make eval` on the live build to compare again).
+
+```bash
+make pipeline                  # embed -> cluster -> build -> eval -> gate (stops if the gate fails)
+make eval                      # or by hand: score the newest build -> data/runs/eval-<version>/report.md
+make gate                      # pass/fail it -> data/runs/eval-<version>/gate.json
+make mlflow                    # every eval run, metric and the champion: http://127.0.0.1:5001
+make champion VERSION=<v>      # mark an already-live build as the champion (publish does this itself)
+```
+
+`make publish` (and `publish-chat`) refuse a build without a passing, up-to-date gate result. `--no-gate` overrides it with a warning, and such a build never becomes the champion. After a publish is confirmed live, MLflow's registered model `galaxy` gets the alias `champion` pointing at that build's eval run; the next build is compared against it.
 
 Cluster names carry over between runs by matching each new cluster to the closest previous one. New clusters with no match are listed for you to name.
 

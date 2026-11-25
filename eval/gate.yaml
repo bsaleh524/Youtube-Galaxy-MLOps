@@ -1,0 +1,11 @@
+# Quality gate thresholds (pipeline/gate.py). Confirmed by the owner at Checkpoint 4 of Plan 5 (2026-11-24).
+# Baseline (live build 20261124-053913-640c47c5): silhouette 0.0292, agreement 0.784, approved recall@8 0.186.
+# silhouette_floor: the measured baseline minus a 0.005 margin (never the old, unvalidated 0.40).
+silhouette_floor: 0.024
+# recall_tolerance: how far approved recall@8 may drop below the live build's before failing.
+recall_tolerance: 0.05
+# count_ratio: a new build needs at least this share of the live build's creators.
+count_ratio: 0.9
+# agreement_min: the two-stage search must find at least this share of the exact top 8
+# (baseline 0.784 minus 0.05, rounded down to 0.05).
+agreement_min: 0.70
